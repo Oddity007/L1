@@ -1,0 +1,7 @@
+is_natural = #require "is_natural";
+
+factorial = #undefined;
+factorial n ?? n == 1 = 1;
+factorial n ?? is_natural n = n * #self(n - 1);
+
+{.factorial = factorial, .square = x | x * x}

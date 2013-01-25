@@ -1,4 +1,9 @@
 #include "L1Lexer.h"
+#include <stdbool.h>
+#include <iso646.h>
+#include <string.h>
+#include <assert.h>
+#include <ctype.h>
 
 const char* L1LexerTokenTypeAsString(L1LexerTokenType self)
 {
@@ -36,7 +41,7 @@ const char* L1LexerTokenTypeAsString(L1LexerTokenType self)
 
 //////////////////////
 
-char L1LexerPump(L1Lexer* self)
+static char L1LexerPump(L1Lexer* self)
 {
 	char current = 0;
 	if(self->pump) current = self->pump(self);
@@ -49,17 +54,21 @@ char L1LexerPump(L1Lexer* self)
 	return current;
 }
 
-char L1LexerPeek(L1Lexer* self)
+static uint_least32_t L1LexerPeek(L1Lexer* self)
 {
 	if(self->peek) return self->peek(self);
 	return 0;
 }
 
-void L1LexerAddStringToBuffer(L1Lexer* self, const char* string)
+static void L1LexerAddStringToBuffer(L1Lexer* self, const uint8_t* string)
 {
 	if(string==NULL) return;
 	if(string[0]==0) return;
-	size_t length = strlen(string);
+	uint_least64_t length = 0;
+	while(string[length])
+	{
+		length++;
+	}
 
 	if(self->bufferUsed + length + 1 > self->bufferAllocated)
 	{
@@ -73,14 +82,15 @@ void L1LexerAddStringToBuffer(L1Lexer* self, const char* string)
 	self->buffer[self->bufferUsed] = '\0';
 }
 
-void L1LexerAddCharacterToBuffer(L1Lexer* self, const char c)
+static void L1LexerAddCharacterToBuffer(L1Lexer* self, const uint_least32_t c)
 {
 	if(c==0) return;
-	const char string[2] = {c, 0};
+	assert(c < 256);
+	const uint8_t string[2] = {c, 0};
 	L1LexerAddStringToBuffer(self, string);
 }
 
-void L1LexerClearBuffer(L1Lexer* self)
+static void L1LexerClearBuffer(L1Lexer* self)
 {
 	free(self->buffer);
 	self->buffer = NULL;
@@ -90,26 +100,26 @@ void L1LexerClearBuffer(L1Lexer* self)
 
 //const char* L1LexerGetBuffer(L1Lexer* self){return self->buffer;}
 
-static inline void L1LexerSetBuffer(L1Lexer* self, const char* string)
+static inline void L1LexerSetBuffer(L1Lexer* self, const uint8_t* string)
 {
 	L1LexerClearBuffer(self);
 	L1LexerAddStringToBuffer(self, string);
 }
 
-static inline bool IsAlpha(char c)
+static inline bool IsAlpha(uint_least32_t c)
 {
 	if('A' <= c and c <= 'Z') return true;
 	if('a' <= c and c <= 'z') return true;
 	return false;
 }
 
-static inline bool IsDigit(char c)
+static inline bool IsDigit(uint_least32_t c)
 {
 	if('0' <= c and c <= '9') return true;
 	return false;
 }
 
-static bool L1LexerLexNumber(L1Lexer* self, char c)
+static bool L1LexerLexNumber(L1Lexer* self, uint_least32_t c)
 {
 	bool alreadyHadDecimalPoint = false;
 	if(c == '.')
@@ -124,21 +134,22 @@ static bool L1LexerLexNumber(L1Lexer* self, char c)
 		if(alreadyHadDecimalPoint and c=='.') return false;
 		else if(c=='.') alreadyHadDecimalPoint = true;
 		L1LexerAddCharacterToBuffer(self, c);
-		char next = L1LexerPeek(self);
+		uint_least32_t next = L1LexerPeek(self);
 		if(not (IsDigit(next) or next=='.')) return true;
 		c = L1LexerPump(self);
 	}
 	return false;
 }
 
-static bool L1LexerLexIdentifier(L1Lexer* self, char c)
+static bool L1LexerLexIdentifier(L1Lexer* self, uint_least32_t c)
 {
 	bool firstCharacter = true;
-	while (c) {
+	while (c)
+	{
 		if(IsAlpha(c) or c == '_' or (firstCharacter and c == '#') or ((not firstCharacter) and IsDigit(c)))
 		{
 			L1LexerAddCharacterToBuffer(self, c);
-			char next = L1LexerPeek(self);
+			uint_least32_t next = L1LexerPeek(self);
 			if(not (IsAlpha(next) or next == '_' or IsDigit(next))) return true;
 		}
 		else break;
@@ -148,7 +159,7 @@ static bool L1LexerLexIdentifier(L1Lexer* self, char c)
 	return false;
 }
 
-static bool L1LexerLexString(L1Lexer* self, char c)
+static bool L1LexerLexString(L1Lexer* self, uint_least32_t c)
 {
 	if(c not_eq '"') return false;
 	while ((c = L1LexerPump(self)))
@@ -186,9 +197,10 @@ static bool L1LexerLexString(L1Lexer* self, char c)
 	return false;
 }
 
-static void L1LexerEatSingleLineComment(L1Lexer* self, char c)
+static void L1LexerEatSingleLineComment(L1Lexer* self, uint_least32_t c)
 {
-	while (c) {
+	while (c)
+	{
 		if(L1LexerPeek(self) == '\n') return;
 		c = L1LexerPump(self);
 	}
@@ -196,13 +208,14 @@ static void L1LexerEatSingleLineComment(L1Lexer* self, char c)
 
 L1LexerError L1LexerLex(L1Lexer* self)
 {
-	char c = 0;
-	int tokenType = 0;
+	uint_least32_t c = 0;
+	L1LexerTokenType tokenType = 0;
 	L1LexerError error = L1LexerErrorNone;
 	L1LexerClearBuffer(self);
 	while((c = L1LexerPump(self)))
 	{
-		switch (c) {
+		switch (c)
+		{
 			case '\0':
 				tokenType = L1LexerTokenTypeDone;
 				goto end;

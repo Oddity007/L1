@@ -1,12 +1,8 @@
 #ifndef L1Lexer_h
 #define L1Lexer_h
 
-#include <stdbool.h>
-#include <iso646.h>
 #include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <assert.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -55,27 +51,27 @@ typedef struct L1Lexer L1Lexer;
 struct L1Lexer
 {
 	//L1Lexer State
-	size_t currentLineNumber;
-	long currentCharacterOfLineNumber;
+	uint_least64_t currentLineNumber;
+	uint_least64_t currentCharacterOfLineNumber;
 	L1LexerTokenType lastTokenType;
 	
 	//Buffering text
-	char* buffer;
-	size_t bufferUsed, bufferAllocated;
+	uint8_t* buffer;
+	uint_least64_t bufferUsed, bufferAllocated;
 	
 	//Error handling
 	L1LexerError lastError;
 	
 	//Input
-	char (*pump)(L1Lexer* self);
-	char (*peek)(L1Lexer* self);
+	uint_least32_t (*pump)(L1Lexer* self);
+	uint_least32_t (*peek)(L1Lexer* self);
 	void* userdata;
 	
 	//L1Lexer configurations
 };
 
-void L1LexerAddStringToBuffer(L1Lexer* self, const char* string);
-void L1LexerClearBuffer(L1Lexer* self);
+//void L1LexerAddStringToBuffer(L1Lexer* self, const char* string);
+//void L1LexerClearBuffer(L1Lexer* self);
 //const char* L1LexerGetBuffer(L1Lexer* self);
 
 void L1LexerInit(L1Lexer* self);
