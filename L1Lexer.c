@@ -11,30 +11,30 @@ const char* L1LexerTokenTypeAsString(L1LexerTokenType self)
 	{
 		case L1LexerTokenTypeYield: return "yield";
 		case L1LexerTokenTypeDone: return "done";
-		case L1LexerTokenTypeAddition: return "addition";
+//		case L1LexerTokenTypeAddition: return "addition";
 		case L1LexerTokenTypeAssign: return "assign";
-		case L1LexerTokenTypeClosingDoubleBracket: return "closing double bracket";
+//		case L1LexerTokenTypeClosingDoubleBracket: return "closing double bracket";
 		case L1LexerTokenTypeClosingParenthesis: return "closing parenthesis";
-		case L1LexerTokenTypeComma: return "comma";
-		case L1LexerTokenTypeElipsis: return "elipsis";
-		case L1LexerTokenTypeOpeningDoubleBracket: return "opening double bracket";
-		case L1LexerTokenTypeDivision: return "division";
-		case L1LexerTokenTypeDot: return "dot";
-		case L1LexerTokenTypeEqual: return "equal";
-		case L1LexerTokenTypeGreater: return "greater";
-		case L1LexerTokenTypeGreaterEqual: return "greater equal";
-		case L1LexerTokenTypeHash: return "hash";
+//		case L1LexerTokenTypeComma: return "comma";
+//		case L1LexerTokenTypeElipsis: return "elipsis";
+//		case L1LexerTokenTypeOpeningDoubleBracket: return "opening double bracket";
+//		case L1LexerTokenTypeDivision: return "division";
+//		case L1LexerTokenTypeDot: return "dot";
+//		case L1LexerTokenTypeEqual: return "equal";
+//		case L1LexerTokenTypeGreater: return "greater";
+//		case L1LexerTokenTypeGreaterEqual: return "greater equal";
+//		case L1LexerTokenTypeHash: return "hash";
 		case L1LexerTokenTypeIdentifier: return "identifier";
-		case L1LexerTokenTypeLesser: return "lesser";
-		case L1LexerTokenTypeLesserEqual: return "lesser equal";
-		case L1LexerTokenTypeMultiplication: return "multiplication";
+//		case L1LexerTokenTypeLesser: return "lesser";
+//		case L1LexerTokenTypeLesserEqual: return "lesser equal";
+//		case L1LexerTokenTypeMultiplication: return "multiplication";
 		case L1LexerTokenTypeNumber: return "number";
 		case L1LexerTokenTypeOpeningParenthesis: return "opening parenthesis";
 		case L1LexerTokenTypeQuestionMark: return "question mark";
 		case L1LexerTokenTypeString: return "string";
-		case L1LexerTokenTypeSubtraction: return "subtraction";
+//		case L1LexerTokenTypeSubtraction: return "subtraction";
 		case L1LexerTokenTypeTerminal: return "terminal";
-		case L1LexerTokenTypeDoubleQuestionMark: return "double question mark";
+//		case L1LexerTokenTypeDoubleQuestionMark: return "double question mark";
 	}
 	return NULL;
 }
@@ -119,7 +119,7 @@ static inline bool IsDigit(uint_least32_t c)
 	return false;
 }
 
-static bool L1LexerLexNumber(L1Lexer* self, uint_least32_t c)
+/*static bool L1LexerLexNumber(L1Lexer* self, uint_least32_t c)
 {
 	bool alreadyHadDecimalPoint = false;
 	if(c == '.')
@@ -139,14 +139,45 @@ static bool L1LexerLexNumber(L1Lexer* self, uint_least32_t c)
 		c = L1LexerPump(self);
 	}
 	return false;
+}*/
+
+static bool L1LexerLexNumber(L1Lexer* self, uint_least32_t c)
+{
+	while (c)
+	{
+		if(not IsDigit(c)) break;
+		L1LexerAddCharacterToBuffer(self, c);
+		uint_least32_t next = L1LexerPeek(self);
+		if(not IsDigit(next)) return true;
+		c = L1LexerPump(self);
+	}
+	return false;
 }
+
+/*static bool L1LexerLexIdentifier(L1Lexer* self, uint_least32_t c)
+{
+	bool firstCharacter = true;
+	while (c)
+	{
+		if(IsAlpha(c) or c == '_' or (firstCharacter and c == '#') or ((not firstCharacter) and IsDigit(c)))
+		{
+			L1LexerAddCharacterToBuffer(self, c);
+			uint_least32_t next = L1LexerPeek(self);
+			if(not (IsAlpha(next) or next == '_' or IsDigit(next))) return true;
+		}
+		else break;
+		firstCharacter=false;
+		c = L1LexerPump(self);
+	}
+	return false;
+}*/
 
 static bool L1LexerLexIdentifier(L1Lexer* self, uint_least32_t c)
 {
 	bool firstCharacter = true;
 	while (c)
 	{
-		if(IsAlpha(c) or c == '_' or (firstCharacter and c == '#') or ((not firstCharacter) and IsDigit(c)))
+		if(IsAlpha(c) or c == '_' or ((not firstCharacter) and IsDigit(c)))
 		{
 			L1LexerAddCharacterToBuffer(self, c);
 			uint_least32_t next = L1LexerPeek(self);
@@ -223,22 +254,22 @@ L1LexerError L1LexerLex(L1Lexer* self)
 				tokenType = L1LexerTokenTypeTerminal;
 				goto end;
 			case '=':
-				if(L1LexerPeek(self) == '=')
+				/*if(L1LexerPeek(self) == '=')
 				{
 					L1LexerPump(self);
 					tokenType = L1LexerTokenTypeEqual;
 				}
-				else tokenType = L1LexerTokenTypeAssign;
+				else*/ tokenType = L1LexerTokenTypeAssign;
 				goto end;
-			case '<':
+			/*case '<':
 				if(L1LexerPeek(self)=='=')
 				{
 					L1LexerPump(self);
 					tokenType = L1LexerTokenTypeLesserEqual;
 				}
 				else tokenType = L1LexerTokenTypeLesser;
-				goto end;
-			case '>':
+				goto end;*/
+			/*case '>':
 				if(L1LexerPeek(self) == '=')
 				{
 					L1LexerPump(self);
@@ -246,8 +277,8 @@ L1LexerError L1LexerLex(L1Lexer* self)
 				}
 				else tokenType = L1LexerTokenTypeGreater;
 				goto end;
-				break;
-			case '.':
+				break;*/
+			/*case '.':
 				if(L1LexerPeek(self) == '.')
 				{
 					L1LexerPump(self);
@@ -281,15 +312,7 @@ L1LexerError L1LexerLex(L1Lexer* self)
 				goto end;
 			case '*':
 				tokenType = L1LexerTokenTypeMultiplication;
-				goto end;
-			case '/':
-				if(L1LexerPeek(self) == '/')
-				{
-					L1LexerEatSingleLineComment(self, c);
-					break;
-				}
-				tokenType = L1LexerTokenTypeDivision;
-				goto end;
+				goto end;*/
 			case '(':
 				tokenType = L1LexerTokenTypeOpeningParenthesis;
 				goto end;
@@ -297,19 +320,19 @@ L1LexerError L1LexerLex(L1Lexer* self)
 				tokenType = L1LexerTokenTypeClosingParenthesis;
 				goto end;
 			case '?':
-				if(L1LexerPeek(self) == '?')
+				/*if(L1LexerPeek(self) == '?')
 				{
 					L1LexerPump(self);
 					tokenType = L1LexerTokenTypeDoubleQuestionMark;
 				}
-				else tokenType = L1LexerTokenTypeQuestionMark;
+				else*/ tokenType = L1LexerTokenTypeQuestionMark;
 				goto end;
-			case '{':
+			/*case '{':
 				tokenType = L1LexerTokenTypeOpeningDoubleBracket;
 				goto end;
 			case '}':
 				tokenType = L1LexerTokenTypeClosingDoubleBracket;
-				goto end;
+				goto end;*/
 			case '|':
 				tokenType = L1LexerTokenTypeYield;
 				goto end;
@@ -322,6 +345,14 @@ L1LexerError L1LexerLex(L1Lexer* self)
 			case ' ':
 			case '\t':
 				break;
+			case '/':
+				if(L1LexerPeek(self) == '/')
+				{
+					L1LexerEatSingleLineComment(self, c);
+					break;
+				}
+				//tokenType = L1LexerTokenTypeDivision;
+				//goto end;
 			default:
 				if(L1LexerLexNumber(self, c)) tokenType = L1LexerTokenTypeNumber;
 				else if(L1LexerLexIdentifier(self, c)) tokenType = L1LexerTokenTypeIdentifier;

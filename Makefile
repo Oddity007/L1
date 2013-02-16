@@ -1,8 +1,12 @@
 #just an ordinary makefile
 
 all:
-	clang *.c -std=c99 -o l1c
+	mkdir build
+	cd build && clang ../*.c -std=c99 -g -o l1c
 	rm -f *.o
 
+run:
+	./build/l1c
+
 clean:
-	rm -f l1c
+	rm -rf build

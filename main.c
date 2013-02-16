@@ -9,7 +9,8 @@
 #include <stdio.h>
 #include <iso646.h>
 #include "L1Lexer.h"
-//#include "L1Parser.h"
+#include <assert.h>
+#include "L1Parser.h"
 
 static uint_least32_t PumpCharacter(L1Lexer* self)
 {
@@ -29,13 +30,14 @@ static uint_least32_t PeekCharacter(L1Lexer* self)
 int main(int argc, const char** argv)
 {
 	FILE* file = fopen("sample1.l1", "r");
+	assert(file);
 	L1Lexer lexer;
 	L1LexerInit(& lexer);
 	lexer.userdata = file;
 	lexer.pump = PumpCharacter;
 	lexer.peek = PeekCharacter;
 	
-	while(not feof(file))
+	/*while(not feof(file))
 	{
 		L1LexerError error = L1LexerLex(& lexer);
 		switch (error)
@@ -47,7 +49,11 @@ int main(int argc, const char** argv)
 				goto end;
 		}
 		printf("Token type \"%s\" with data of \"%s\"\n", L1LexerTokenTypeAsString(lexer.lastTokenType), lexer.buffer);
-	}
+	}*/
+	
+	L1Parser* parser = L1ParserNew();
+	L1ParserPrintASTNode(parser, L1ParserParse(parser, & lexer), 0);
+	L1ParserDelete(parser);
 	
 	end:
 	fclose(file);
