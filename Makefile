@@ -1,7 +1,7 @@
 #just an ordinary makefile
 
 all:
-	mkdir build
+	mkdir -p build
 	cd build && clang ../*.c -std=c99 -g -o l1c
 	rm -f *.o
 

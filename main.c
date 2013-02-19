@@ -11,6 +11,7 @@
 #include "L1Lexer.h"
 #include <assert.h>
 #include "L1Parser.h"
+#include "L1ParserASTNodePostProcessing.h"
 
 static uint_least32_t PumpCharacter(L1Lexer* self)
 {
@@ -52,7 +53,9 @@ int main(int argc, const char** argv)
 	}*/
 	
 	L1Parser* parser = L1ParserNew();
-	L1ParserPrintASTNode(parser, L1ParserParse(parser, & lexer), 0);
+	const L1ParserASTNode* node = L1ParserParse(parser, & lexer);
+	if(not L1ParserASTNodeVerifyIntegrity(node)) puts("Failed integrity check.");
+	L1ParserPrintASTNode(parser, node, 0);
 	L1ParserDelete(parser);
 	
 	end:
