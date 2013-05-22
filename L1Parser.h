@@ -8,6 +8,7 @@ extern "C"
 
 #include "L1Lexer.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef struct L1Parser L1Parser;
 typedef enum
@@ -104,6 +105,8 @@ const L1ParserASTNode* L1ParserParse(L1Parser* self, L1Lexer* lexer);
 void L1ParserDelete(L1Parser* self);
 
 void L1ParserPrintASTNode(L1Parser* self, const L1ParserASTNode* node, uint64_t indentation);
+
+bool L1ParserASTNodeVerifyIntegrity(const L1ParserASTNode* self);
 
 #ifdef __cplusplus
 }

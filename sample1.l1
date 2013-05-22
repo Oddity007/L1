@@ -1,5 +1,6 @@
-x |
+zero = f | x | f x;
+successor = n | f | x |
 (
-	__equal x 0 ? 1;
-	__self (__multiply x (__subtract x 1))
-)
+	f (n f x)
+);
+successor zero
