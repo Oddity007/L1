@@ -1,12 +1,10 @@
-#just an ordinary makefile
-
+#a basic makefile
 all:
-	mkdir -p build
-	cd build && clang ../*.c -std=c99 -g -o l1c
-	rm -f *.o
-
-run:
-	./build/l1c
+	lemon L1ParserInternal.y -q
+	clang *.c -g -o l1c
 
 clean:
-	rm -rf build
+	rm -rf L1ParserInternal.h
+	rm -rf L1ParserInternal.c
+	rm -rf l1c
+	rm -rf l1c.dYSM

@@ -9,15 +9,15 @@ const char* L1LexerTokenTypeAsString(L1LexerTokenType self)
 {
 	switch (self)
 	{
-		case L1LexerTokenTypeYield: return "yield";
+//		case L1LexerTokenTypeYield: return "yield";
 		case L1LexerTokenTypeDone: return "done";
 //		case L1LexerTokenTypeAddition: return "addition";
 		case L1LexerTokenTypeAssign: return "assign";
-//		case L1LexerTokenTypeClosingDoubleBracket: return "closing double bracket";
+		case L1LexerTokenTypeClosingSquareBracket: return "closing square bracket";
 		case L1LexerTokenTypeClosingParenthesis: return "closing parenthesis";
-//		case L1LexerTokenTypeComma: return "comma";
-//		case L1LexerTokenTypeElipsis: return "elipsis";
-//		case L1LexerTokenTypeOpeningDoubleBracket: return "opening double bracket";
+		case L1LexerTokenTypeComma: return "comma";
+		case L1LexerTokenTypeElipsis: return "elipsis";
+		case L1LexerTokenTypeOpeningSquareBracket: return "opening square bracket";
 //		case L1LexerTokenTypeDivision: return "division";
 //		case L1LexerTokenTypeDot: return "dot";
 //		case L1LexerTokenTypeEqual: return "equal";
@@ -35,9 +35,11 @@ const char* L1LexerTokenTypeAsString(L1LexerTokenType self)
 //		case L1LexerTokenTypeSubtraction: return "subtraction";
 		case L1LexerTokenTypeTerminal: return "terminal";
 //		case L1LexerTokenTypeDoubleQuestionMark: return "double question mark";
+		case L1LexerTokenTypeTypeQualifier: return "type qualifier";
 	}
 	return NULL;
 }
+
 
 //////////////////////
 
@@ -237,6 +239,17 @@ static void L1LexerEatSingleLineComment(L1Lexer* self, uint_least32_t c)
 	}
 }
 
+static void L1LexerEatMultiLineComment(L1Lexer* self, uint_least32_t c)
+{
+	while (c)
+	{
+		uint_least32_t lastCharacter = c;
+		c = L1LexerPump(self);
+		if(lastCharacter == '*' and c == '/') return;
+		if (lastCharacter == '\0') return;
+	}
+}
+
 L1LexerError L1LexerLex(L1Lexer* self)
 {
 	uint_least32_t c = 0;
@@ -278,7 +291,7 @@ L1LexerError L1LexerLex(L1Lexer* self)
 				else tokenType = L1LexerTokenTypeGreater;
 				goto end;
 				break;*/
-			/*case '.':
+			case '.':
 				if(L1LexerPeek(self) == '.')
 				{
 					L1LexerPump(self);
@@ -296,15 +309,19 @@ L1LexerError L1LexerLex(L1Lexer* self)
 				{
 					if(L1LexerLexNumber(self, c)) tokenType = L1LexerTokenTypeNumber;
 				}
-				else tokenType = L1LexerTokenTypeDot;
+				else
+				{
+					error = L1LexerErrorUnknown;
+					//tokenType = L1LexerTokenTypeDot;
+				}
 				goto end;
-			case '#':
+			/*case '#':
 				tokenType = L1LexerTokenTypeHash;
-				goto end;
+				goto end;*/
 			case ',':
 				tokenType = L1LexerTokenTypeComma;
 				goto end;
-			case '+':
+			/*case '+':
 				tokenType = L1LexerTokenTypeAddition;
 				goto end;
 			case '-':
@@ -327,18 +344,29 @@ L1LexerError L1LexerLex(L1Lexer* self)
 				}
 				else*/ tokenType = L1LexerTokenTypeQuestionMark;
 				goto end;
-			/*case '{':
-				tokenType = L1LexerTokenTypeOpeningDoubleBracket;
+			case '[':
+				tokenType = L1LexerTokenTypeOpeningSquareBracket;
 				goto end;
-			case '}':
-				tokenType = L1LexerTokenTypeClosingDoubleBracket;
-				goto end;*/
-			case '|':
+			case ']':
+				tokenType = L1LexerTokenTypeClosingSquareBracket;
+				goto end;
+			/*case '|':
 				tokenType = L1LexerTokenTypeYield;
-				goto end;
+				goto end;*/
 			case '\"':
 				if(L1LexerLexString(self, c)) tokenType=L1LexerTokenTypeString;
 				else error=L1LexerErrorUnknown;
+				goto end;
+			case ':':
+				if(L1LexerPeek(self) == ':')
+				{
+					L1LexerPump(self);
+					tokenType = L1LexerTokenTypeTypeQualifier;
+				}
+				else
+				{
+					error = L1LexerErrorUnknown;
+				}
 				goto end;
 			case '\n':
 			case '\r':
@@ -349,6 +377,12 @@ L1LexerError L1LexerLex(L1Lexer* self)
 				if(L1LexerPeek(self) == '/')
 				{
 					L1LexerEatSingleLineComment(self, c);
+					break;
+				}
+				else if(L1LexerPeek(self) == '*')
+				{
+					L1LexerPump(self);
+					L1LexerEatMultiLineComment(self, L1LexerPump(self));
 					break;
 				}
 				//tokenType = L1LexerTokenTypeDivision;

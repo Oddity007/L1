@@ -19,7 +19,7 @@ typedef enum
 {
 	L1LexerTokenTypeDone,
 	L1LexerTokenTypeTerminal,
-//	L1LexerTokenTypeComma,
+	L1LexerTokenTypeComma,
 	L1LexerTokenTypeAssign,
 //	L1LexerTokenTypeEqual,
 //	L1LexerTokenTypeGreaterEqual,
@@ -31,18 +31,20 @@ typedef enum
 //	L1LexerTokenTypeDivision,
 //	L1LexerTokenTypeMultiplication,
 //	L1LexerTokenTypeDot,
-//	L1LexerTokenTypeElipsis,
+	L1LexerTokenTypeElipsis,
 	L1LexerTokenTypeIdentifier,
 	L1LexerTokenTypeOpeningParenthesis,
 	L1LexerTokenTypeClosingParenthesis,
-//	L1LexerTokenTypeOpeningDoubleBracket,
-//	L1LexerTokenTypeClosingDoubleBracket,
+	L1LexerTokenTypeOpeningSquareBracket,
+	L1LexerTokenTypeClosingSquareBracket,
 	L1LexerTokenTypeNumber,
 	L1LexerTokenTypeString,
 //	L1LexerTokenTypeHash,
 	L1LexerTokenTypeQuestionMark,
+	L1LexerTokenTypeTypeQualifier,
 //	L1LexerTokenTypeDoubleQuestionMark,
-	L1LexerTokenTypeYield
+//	L1LexerTokenTypeYield
+	L1LexerTokenTypeLast = L1LexerTokenTypeTypeQualifier
 }L1LexerTokenType;
 
 const char* L1LexerTokenTypeAsString(L1LexerTokenType self);

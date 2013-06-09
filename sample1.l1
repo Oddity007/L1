@@ -1,6 +1,3 @@
-zero = f | x | f x;
-successor = n | f | x |
-(
-	f (n f x)
-);
-successor zero
+map f [] = [];
+map f [x, ...xs] = [f x, ...map f xs];
+map
