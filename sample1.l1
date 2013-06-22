@@ -1,3 +1,19 @@
 map f [] = [];
 map f [x, ...xs] = [f x, ...map f xs];
 map
+/*! 0 = 1;
+! x = x * (! (x - 1));
+!*/
+/*
+vec3 x y z ?? all is_numeric [x, y, z] =
+(
+	v "x" = vec3.x;
+	v "y" = vec3.y;
+	v "z" = vec3.z;
+	v "+" v2 = vec3 (v "x" + v2 "x") (v "y" + v2 "y") (v "z" + v2 "z");
+)
+*/
+
+//(a b => "asdfawefwaefasegfaweg" (a b)) (x => multiply x x) 2
+
+//[a, b] ?? (a) $(a b) => multiply a b
