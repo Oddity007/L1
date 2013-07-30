@@ -39,6 +39,7 @@ end
 local Lex = require "Lex"
 local Parse = require "Parse"
 --local GenerateHLIR = require "GenerateHLIR"
+local EvaluateHLIR = require "EvaluateHLIR"
 
 local inputFile = assert(io.open("sample1.l1", "r"))
 local input = inputFile:read("*all")
@@ -52,5 +53,11 @@ end
 print("AST:")
 local astRootNode = Parse(tokens)
 print(table.tostring(astRootNode))
---[[print("HLIR CONSTANTS:")
-local hlir = GenerateHLIR(astRootNode)]]
+print("HLIR:")
+local hlir = nil
+--GenerateHLIR(astRootNode)
+--local f = {"call", {"lambda", "a", {"modulo", {"integer", "100"}, {"get", "a"}}}, {"integer", "30"}}
+--{"select", {"equal", f, {"integer", "10"}}, {"boolean", "false"}, {"boolean", "true"}}
+print("HLIR Evaluation:")
+local evaluatedResult = EvaluateHLIR(hlir)
+print("{" .. table.concat(evaluatedResult, ", ") .. "}")
