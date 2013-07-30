@@ -246,7 +246,7 @@ local Rules =
 	{type = "expression", "assignmentTargets", "yield", "chainedOrUnchainedClosedExpression", action = function(nodes) return {type = "anonymous function", arguments = reverse(nodes[1]), body = nodes[3]} end},
 	{type = "expression", "identifier", "assignmentTargets", "assign", "chainedOrUnchainedClosedExpression", "terminal", "expression", action = function(nodes) return {type = "function assignment", functionName = nodes[1], arguments = reverse(nodes[2]), body = nodes[4], followingContext = nodes[6]} end},
 	{type = "expression", "assignmentTargets", "assign", "chainedOrUnchainedClosedExpression", "terminal", "expression", action = function(nodes) return {type = "assignment", destination = reverse(nodes[1]), source = nodes[3], followingContext = nodes[5]} end},
-	{type = "expression", "chainedOrUnchainedClosedExpression", "single question mark", "chainedOrUnchainedClosedExpression", "terminal", "expression", action = function(nodes) return {type = "assignment", condition = nodes[1], resultIfTrue = nodes[3], resultIfFalse = nodes[5]} end},
+	{type = "expression", "chainedOrUnchainedClosedExpression", "single question mark", "chainedOrUnchainedClosedExpression", "terminal", "expression", action = function(nodes) return {type = "branch", condition = nodes[1], resultIfTrue = nodes[3], resultIfFalse = nodes[5]} end},
 	{type = "expression", "chainedExpression", action = function(nodes) return nodes[1] end},
 	{type = "expression", "closedExpression", action = function(nodes) return nodes[1] end},
 	
@@ -276,7 +276,7 @@ local Rules =
 	},
 	{type = "assignmentTargetListBody", "ellipsis", "assignmentTarget", 
 		action = function(nodes)
-			return {{type = "sublist", list = nodes[2]}}
+			return {{type = "sublist", expression = nodes[2]}}
 		end
 	},
 	{type = "assignmentTargetListBody", "assignmentTarget", 
@@ -312,7 +312,7 @@ local Rules =
 	},
 	{type = "expressionListBody", "ellipsis", "expression", 
 		action = function(nodes)
-			return {{type = "sublist", list = nodes[2]}}
+			return {{type = "sublist", expression = nodes[2]}}
 		end
 	},
 	{type = "expressionListBody", "expression", 

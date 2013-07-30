@@ -38,7 +38,7 @@ end
 
 local Lex = require "Lex"
 local Parse = require "Parse"
-local GenerateHLIR = require "GenerateHLIR"
+--local GenerateHLIR = require "GenerateHLIR"
 
 local inputFile = assert(io.open("sample1.l1", "r"))
 local input = inputFile:read("*all")
@@ -52,5 +52,5 @@ end
 print("AST:")
 local astRootNode = Parse(tokens)
 print(table.tostring(astRootNode))
-print("HLIR CONSTANTS:")
-local hlir = GenerateHLIR(astRootNode)
+--[[print("HLIR CONSTANTS:")
+local hlir = GenerateHLIR(astRootNode)]]

@@ -1,7 +1,7 @@
-map f [] = [];
+/*map f [] = [];
 map f [x, ...xs] = [f x, ...map f xs];
 map
-/*! 0 = 1;
+! 0 = 1;
 ! x = x * (! (x - 1));
 !*/
 /*
@@ -17,3 +17,5 @@ vec3 x y z ?? all is_numeric [x, y, z] =
 //(a b => "asdfawefwaefasegfaweg" (a b)) (x => multiply x x) 2
 
 //[a, b] ?? (a) $(a b) => multiply a b
+
+f xs => __prepend (f (__head xs)) (__self f (__tail xs))
