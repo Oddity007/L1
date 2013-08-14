@@ -18,4 +18,7 @@ vec3 x y z ?? all is_numeric [x, y, z] =
 
 //[a, b] ?? (a) $(a b) => multiply a b
 
-f xs => __prepend (f (__head xs)) (__self f (__tail xs))
+//f xs => __prepend (f (__head xs)) (__self f (__tail xs))
+//fpc = (f => (f f));
+//(fpc (f => (x => x)) 3
+(__multiply 3) 6
