@@ -1,10 +1,12 @@
 local Lex = require "Lex"
 local Parse = require "Parse"
+local GenerateFIR = require "GenerateFIR"
 local TableToString = require "TableToString"
 local Tests = {
 	{input = "a = 1; a"},
 	{input = "a = __add 1 1; a"},
-	{input = "a = 1 + 1; a"},
+	{input = "f a b = __multiply a b; f 2 3"},
+--	{input = "a = 1 + 1; a"},
 }
 
 local function FailTest(testName, message)
@@ -26,4 +28,8 @@ for testName, test in pairs(Tests) do
 	if not status then FailTest(testName, returnValue) end
 	local astRootNode = returnValue
 	print(TableToString(astRootNode))
+	
+	print("GenerateFIR(...) = ")
+	local fir = GenerateFIR(astRootNode)
+	print(TableToString(fir))
 end

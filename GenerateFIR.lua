@@ -63,6 +63,11 @@ local function Generate(node, outputStatements, state)
 			outputStatements[#outputStatements + 1] = "loadundefined"
 			outputStatements[#outputStatements + 1] = identifier
 			return identifier
+		elseif node.data == "__match" then
+			local identifier = GenerateIdentifier(state)
+			outputStatements[#outputStatements + 1] = "loadmatch"
+			outputStatements[#outputStatements + 1] = identifier
+			return identifier
 		elseif node.data == "__true" then
 			local identifier = GenerateIdentifier(state)
 			outputStatements[#outputStatements + 1] = "loadtrue"
@@ -76,6 +81,11 @@ local function Generate(node, outputStatements, state)
 		elseif node.data == "__multiply" then
 			local identifier = GenerateIdentifier(state)
 			outputStatements[#outputStatements + 1] = "loadmultiply"
+			outputStatements[#outputStatements + 1] = identifier
+			return identifier
+		elseif node.data == "__add" then
+			local identifier = GenerateIdentifier(state)
+			outputStatements[#outputStatements + 1] = "loadadd"
 			outputStatements[#outputStatements + 1] = identifier
 			return identifier
 		else
@@ -130,7 +140,7 @@ local function Generate(node, outputStatements, state)
 		error("Not yet implemented")]]
 	elseif node.type == "call" then
 		local calleeIdentifier = Generate(node.callee, outputStatements, state)
-		local destinationIdentifier = nil
+		local destinationIdentifier
 		for _, argument in ipairs(node.arguments) do
 			local argumentIdentifier = Generate(argument, outputStatements, state)
 			destinationIdentifier = GenerateIdentifier(state)
@@ -170,11 +180,87 @@ local function Generate(node, outputStatements, state)
 		
 		return destinationIdentifier
 	elseif node.type == "function assignment" then
-		error("Not yet implemented")
+		--[[
+			factorial x = multiply x (factorial (subtract x 1));
+			factorial 0 = 1;
+			factorial
+			
+			map f [x, ...xs] = [f x, ...map f xs];
+			map _ [] = [];
+			map
+		]]
+		
+		local functionIdentifier
+		error("functionIdentifier needs a value")
+		local resultIdentifier = GenerateIdentifier(state)
+		local finalResultIdentifier = resultIdentifier
+		local argumentIdentifierStatementIndices = {}
+		--[[
+			closure 1 2 3
+			multiply 3 2 2
+			call 1 4
+			
+			closure 1 2 3
+			closure 3 4 5
+			multiply 5 2 4
+		]]
+		
+		PushScopeAndMapNonuniqueIdentifierToUniqueIdentifier(state, node.functionName.data, functionIdentifier)
+		
+		local numberOfIdentifierArguments = 0
+		
+		for i = #node.arguments, 1, -1 do
+			functionIdentifier = GenerateIdentifier(state)
+			outputStatements[#outputStatements + 1] = "closure"
+			outputStatements[#outputStatements + 1] = functionIdentifier
+			local argumentIdentifier = GenerateIdentifier(state)
+			outputStatements[#outputStatements + 1] = argumentIdentifier
+			local argumentNode = node.arguments[i]
+			if argumentNode.type == "identifier" then
+				outputStatements[#outputStatements + 1] = resultIdentifier
+				resultIdentifier = functionIdentifier
+				
+				numberOfIdentifierArguments = numberOfIdentifierArguments + 1
+				PushScopeAndMapNonuniqueIdentifierToUniqueIdentifier(state, argumentNode.data, argumentIdentifier)
+			
+			else
+				error("Invalid argument")
+			--[[if argumentNode.type == "guard" then
+				outputStatements[#outputStatements + 1] = resultIdentifier
+				local guardValueIdentifier = Generate(argumentNode.expression, outputStatements, state)
+				local conditionIdentifier = GenerateIdentifier(state)
+				
+				local undefinedIdentifier = GenerateIdentifier(state)
+				outputStatements[#outputStatements + 1] = "loadundefined"
+				outputStatements[#outputStatements + 1] = undefinedIdentifier
+				
+				outputStatements[#outputStatements + 1] = "branch"
+				outputStatements[#outputStatements + 1] = resultIdentifier
+				outputStatements[#outputStatements + 1] = guardValueIdentifier
+				outputStatements[#outputStatements + 1] = resultIdentifier
+				outputStatements[#outputStatements + 1] = undefinedIdentifier
+				
+				resultIdentifier = functionIdentifier]]
+			end
+		end
+		
+		outputStatements[#outputStatements + 1] = "let"
+		outputStatements[#outputStatements + 1] = finalResultIdentifier
+		outputStatements[#outputStatements + 1] = Generate(node.body, outputStatements, state)
+		
+		local followingContextIdentifier = Generate(node.followingContext, outputStatements, state)
+		
+		for _ = 1, numberOfIdentifierArguments do
+			PopScope(state)
+		end
+		
+		PopScope(state)
+		
+		return followingContextIdentifier
 	elseif node.type == "assignment" then
 		if node.destination.type ~= "identifier" then error("Not yet implemented") end
-		local sourceIdentifier = Generate(node.destination, outputStatements, state)
-		PushScopeAndMapNonuniqueIdentifierToUniqueIdentifier(state, node.destination.identifier.data, sourceIdentifier)
+		local sourceIdentifier = Generate(node.source, outputStatements, state)
+		PushScopeAndMapNonuniqueIdentifierToUniqueIdentifier(state, node.destination.data, sourceIdentifier)
 		local resultIdentifier = Generate(node.followingContext, outputStatements, state)
 		PopScope(state)
 		return resultIdentifier
