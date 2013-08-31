@@ -6,6 +6,7 @@ local Tests = {
 	{input = "a = 1; a"},
 	{input = "a = __add 1 1; a"},
 	{input = "f a b = __multiply a b; f 2 3"},
+	{input = "square x = __multiply x x; square 2"},
 --	{input = "a = 1 + 1; a"},
 }
 
