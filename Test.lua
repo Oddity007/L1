@@ -7,6 +7,14 @@ local Tests = {
 	{input = "a = __add 1 1; a"},
 	{input = "f a b = __multiply a b; f 2 3"},
 	{input = "square x = __multiply x x; square 2"},
+	{input = [[
+		factorial x = 
+		(
+			__equal x 0 ? 1;
+			__multiply x (__self (__subtract x 1))
+		);
+		factorial
+	]]}
 --	{input = "a = 1 + 1; a"},
 }
 
@@ -32,5 +40,8 @@ for testName, test in pairs(Tests) do
 	
 	print("GenerateFIR(...) = ")
 	local fir = GenerateFIR(astRootNode)
-	print(TableToString(fir))
+	local status, errorData = pcall(function() print(TableToString(fir)) end)
+	if not status then
+		print(errorData)
+	end
 end

@@ -11,7 +11,7 @@ end
 
 local function GenerateUniqueIdentifier(state)
 	state.lastUniqueIdentifierID = (state.lastUniqueIdentifierID or 0) + 1
-	return state.lastUniqueIdentifierID
+	return {"unique identifier", state.lastUniqueIdentifierID}
 end
 
 local function FindBinding(state, identifier)
@@ -42,6 +42,10 @@ local function Generate(node, state)
 			return {"loadmultiply"}
 		elseif node.data == "__add" then
 			return {"loadadd"}
+		elseif node.data == "__equal" then
+			return {"loadequal"}
+		elseif node.data == "__subtract" then
+			return {"loadequal"}
 		else
 			local value = FindBinding(state, node.data)
 			if value then return value end
@@ -70,33 +74,42 @@ local function Generate(node, state)
 		error("Not yet implemented")
 	elseif node.type == "function assignment" then
 		local functionValue = {"closure", "", 0}
+		
+		local lastDefinition = FindBinding(state, node.functionName.data)
+		PushBinding(state, node.functionName.data, functionValue)
+		PushBinding(state, "__super", lastDefinition)
+		PushBinding(state, "__self", functionValue)
+		
 		local numberOfBindings = 0
+		local numberOfActualArguments = 0
 		for i, argumentNode in ipairs(node.arguments) do
 			if argumentNode.type == "identifier" then
 				local argument = GenerateUniqueIdentifier(state)
 				PushBinding(state, argumentNode.data, argument)
 				functionValue[#functionValue + 1] = argument
 				numberOfBindings = numberOfBindings + 1
+				numberOfActualArguments = numberOfActualArguments + 1
+			--elseif argumentNode.type == "guard" then
 			else
-				--if argumentNode.type == "guard" then
 				error("Not yet implemented")
 			end
 		end
-		
-		PushBinding(state, node.functionName.data, functionValue)
 		
 		local body = Generate(node.body, state)
 		functionValue[2] = body
 		
 		local followingContext = Generate(node.followingContext, state)
 		
-		functionValue[3] = numberOfBindings
-		
-		PopBinding(state)
+		functionValue[3] = numberOfActualArguments
 		
 		for i = 1, numberOfBindings do
 			PopBinding(state)
 		end
+		
+		PopBinding(state)
+		PopBinding(state)
+		PopBinding(state)
+		
 		return followingContext
 	elseif node.type == "assignment" then
 		if node.destination.type ~= "identifier" then error("Not yet implemented") end
