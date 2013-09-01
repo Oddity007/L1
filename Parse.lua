@@ -74,7 +74,7 @@ local ParserRules =
 	},
 	{type = "assignmentTargets", "assignmentTarget", "end", action = function(nodes) return {nodes[1]} end},
 	{type = "assignmentTarget", "eval", "closedExpression", action = function(nodes) return NewEvalNode(nodes[2]) end},
-	{type = "assignmentTarget", "double question mark", "closedExpression", action = function(nodes) return NewGuardNode(nodes[2]) end},
+	--{type = "assignmentTarget", "double question mark", "closedExpression", action = function(nodes) return NewGuardNode(nodes[2]) end},
 	{type = "assignmentTarget", "identifier", action = PassThroughFirstNode},
 	{type = "assignmentTarget", "number", action = PassThroughFirstNode},
 	{type = "assignmentTarget", "string", action = PassThroughFirstNode},

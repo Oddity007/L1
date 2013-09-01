@@ -64,43 +64,134 @@ local function Generate(node, state)
 		end
 		return tail
 	elseif node.type == "call" then
-		local callee = Generate(node.callee, state)
+		--[[local callee = Generate(node.callee, state)
 		local call = {"call", callee, #node.arguments}
 		for _, argument in ipairs(node.arguments) do
 			call[#call + 1] = Generate(argument, state)
+		end
+		return call]]
+		--error("Not yet implemented")
+		local call = Generate(node.callee, state)
+		for i = #node.arguments, 1, -1 do
+			call = {"call", call, Generate(node.arguments[i], state)}
 		end
 		return call
 	elseif node.type == "anonymous function" then
 		error("Not yet implemented")
 	elseif node.type == "function assignment" then
-		local functionValue = {"closure", "", 0}
-		
+		assert(node.functionName.type == "identifier")
+		local undefined = {"loadundefined"}
 		local lastDefinition = FindBinding(state, node.functionName.data)
-		PushBinding(state, node.functionName.data, functionValue)
-		PushBinding(state, "__super", lastDefinition)
-		PushBinding(state, "__self", functionValue)
+		
+		PushBinding(state, "__super", lastDefinition or undefined)
+		
+		local functionRedirection = {"redirect"}
+		
+		local argumentUniqueIdentifiers = {}
+		for i = 1, #node.arguments do
+			local argument = node.arguments[i]
+			local argumentUniqueIdentifier = GenerateUniqueIdentifier(state)
+			argumentUniqueIdentifiers[#argumentUniqueIdentifiers + 1] = argumentUniqueIdentifier
+		end
 		
 		local numberOfBindings = 0
-		local numberOfActualArguments = 0
+		
+		for i, argument in ipairs(node.arguments) do
+			local argumentUniqueIdentifier = argumentUniqueIdentifiers[i]
+			if argument.type == "identifier" then
+				PushBinding(state, argument.data, argumentUniqueIdentifier)
+				numberOfBindings = numberOfBindings + 1
+			end
+		end
+		
+		PushBinding(state, "__self", functionRedirection)
+		local body = Generate(node.body, state)
+		PopBinding(state)
+		
+		for i = 1, numberOfBindings do
+			PopBinding(state)
+		end
+		
+		PopBinding(state)
+		
+		for i = #node.arguments, 1, -1 do
+			local argument = node.arguments[i]
+			local argumentUniqueIdentifier = argumentUniqueIdentifiers[i]
+			if argument.type == "identifier" then
+				body = {"closure", argumentUniqueIdentifier, body}
+			elseif argument.type == "eval" then
+				local equality = {"call", {"call", {"loadequal"}, Generate(argument.expression, state)}, argumentUniqueIdentifier}
+				local lastDefinitionCallee = lastDefinition
+				if lastDefinition then
+					for j = 1, i do
+						local argumentUniqueIdentifier = argumentUniqueIdentifiers[j]
+						lastDefinitionCallee = {"call", lastDefinitionCallee, argumentUniqueIdentifier}
+					end
+				end
+				
+				local condition = {"branch", equality, body, lastDefinitionCallee}
+				body = {"closure", argumentUniqueIdentifier, condition}
+			else
+				error("Invalid argument type")
+			end
+		end
+		
+		functionRedirection[2] = body
+		
+		return body
+		--[[local rootFunctionValue = {"closure"}
+		
+		local lastDefinition = FindBinding(state, node.functionName.data) or {"loadundefined"}
+		--PushBinding(state, node.functionName.data, rootFunctionValue)
+		PushBinding(state, "__super", lastDefinition)
+		PushBinding(state, "__self", rootFunctionValue)
+		
+		--local body, finalGuardBranch = nil, nil
+		
+		local arguments = {}
+		
+		local numberOfBindings = 0
+		for i, argumentNode in ipairs(node.arguments) do
+			if argumentNode.type ~= "guard" then
+				local argument = GenerateUniqueIdentifier(state)
+				arguments[i] = argument
+				PushBinding(state, argumentNode.data, argument)
+				numberOfBindings = numberOfBindings + 1
+			end
+		end
+		
 		for i, argumentNode in ipairs(node.arguments) do
 			if argumentNode.type == "identifier" then
-				local argument = GenerateUniqueIdentifier(state)
-				PushBinding(state, argumentNode.data, argument)
-				functionValue[#functionValue + 1] = argument
-				numberOfBindings = numberOfBindings + 1
-				numberOfActualArguments = numberOfActualArguments + 1
-			--elseif argumentNode.type == "guard" then
+				local argument = arguments[i]
+			elseif argumentNode.type == "guard" then
+				lastDefinition = {"branch", Generate(argumentNode.expression, state), , lastDefinition}
+				if not rootBody then rootBody = body end
 			else
 				error("Not yet implemented")
 			end
 		end
 		
-		local body = Generate(node.body, state)
-		functionValue[2] = body
+		local numberOfActualArguments = 0
+		for i, argumentNode in ipairs(node.arguments) do
+			if argumentNode.type == "identifier" then
+				local argument = GenerateUniqueIdentifier(state)
+				PushBinding(state, argumentNode.data, argument)
+				--functionValue[#functionValue + 1] = argument
+				functionBodyValue[nextFunctionBodyValueIndex] = {"closure", }functionBodyValue
+				nextFunctionBodyValueIndex = 
+				numberOfBindings = numberOfBindings + 1
+				numberOfActualArguments = numberOfActualArguments + 1
+				elseif argumentNode.type == "guard" then
+				body = {"branch", Generate(argumentNode.expression, state), {"call", }, {"loadundefined"}}
+				if not rootBody then rootBody = body end
+			else
+				error("Not yet implemented")
+			end
+		end
+		
+		--local body = Generate(node.body, state)
 		
 		local followingContext = Generate(node.followingContext, state)
-		
-		functionValue[3] = numberOfActualArguments
 		
 		for i = 1, numberOfBindings do
 			PopBinding(state)
@@ -108,9 +199,10 @@ local function Generate(node, state)
 		
 		PopBinding(state)
 		PopBinding(state)
-		PopBinding(state)
+		--PopBinding(state)
 		
 		return followingContext
+		error("Not yet implemented")]]
 	elseif node.type == "assignment" then
 		if node.destination.type ~= "identifier" then error("Not yet implemented") end
 		local source = Generate(node.source, state)
