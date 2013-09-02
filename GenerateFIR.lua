@@ -28,36 +28,42 @@ end
 
 local function Generate(node, state)
 	if node.type == "number" then
-		return {"loadinteger", node.data}
+		return {"load_integer", node.data}
 	elseif node.type == "string" then
-		return {"loadstring", node.data}
+		return {"load_string", node.data}
 	elseif node.type == "identifier" then
 		if node.data == "__undefined" then
-			return {"loadundefined"}
-		elseif node.data == "__true" then
-			return {"loadtrue"}
-		elseif node.data == "__false" then
-			return {"loadfalse"}
+			return {"load_undefined"}
 		elseif node.data == "__multiply" then
-			return {"loadmultiply"}
+			return {"load_multiply"}
+		elseif node.data == "__divide" then
+			return {"load_divide"}
+		elseif node.data == "__greater" then
+			return {"load_greater"}
+		elseif node.data == "__greater_equal" then
+			return {"load_greater_equal"}
+		elseif node.data == "__lesser" then
+			return {"load_lesser"}
+		elseif node.data == "__lesser_equal" then
+			return {"load_lesser_equal"}
 		elseif node.data == "__add" then
-			return {"loadadd"}
+			return {"load_add"}
 		elseif node.data == "__equal" then
-			return {"loadequal"}
+			return {"load_equal"}
 		elseif node.data == "__subtract" then
-			return {"loadequal"}
+			return {"load_subtract"}
 		else
 			local value = FindBinding(state, node.data)
 			if value then return value end
 			error("Use of undefined identifier: " .. tostring(node.data))
 		end
 	elseif node.type == "list" then
-		local tail = {"loademptylist"}
+		local tail = {"load_empty_list"}
 		
 		for i = #node.elements, 1, -1 do
 			local element = node.elements[i]
 			if element.type == "sublist" then
-				tail = {"prependsublist", Generate(element, state), tail}
+				tail = {"prepend_sublist", Generate(element, state), tail}
 			else
 				tail = {"cons", Generate(element, state), tail}
 			end
@@ -80,7 +86,7 @@ local function Generate(node, state)
 		error("Not yet implemented")
 	elseif node.type == "function assignment" then
 		assert(node.functionName.type == "identifier")
-		local undefined = {"loadundefined"}
+		local undefined = {"load_undefined"}
 		local lastDefinition = FindBinding(state, node.functionName.data)
 		
 		PushBinding(state, "__super", lastDefinition or undefined)
@@ -120,7 +126,7 @@ local function Generate(node, state)
 			if argument.type == "identifier" then
 				body = {"closure", argumentUniqueIdentifier, body}
 			elseif argument.type == "eval" then
-				local equality = {"call", {"call", {"loadequal"}, Generate(argument.expression, state)}, argumentUniqueIdentifier}
+				local equality = {"call", {"call", {"load_equal"}, Generate(argument.expression, state)}, argumentUniqueIdentifier}
 				local lastDefinitionCallee = lastDefinition
 				if lastDefinition then
 					for j = 1, i do
@@ -139,70 +145,6 @@ local function Generate(node, state)
 		functionRedirection[2] = body
 		
 		return body
-		--[[local rootFunctionValue = {"closure"}
-		
-		local lastDefinition = FindBinding(state, node.functionName.data) or {"loadundefined"}
-		--PushBinding(state, node.functionName.data, rootFunctionValue)
-		PushBinding(state, "__super", lastDefinition)
-		PushBinding(state, "__self", rootFunctionValue)
-		
-		--local body, finalGuardBranch = nil, nil
-		
-		local arguments = {}
-		
-		local numberOfBindings = 0
-		for i, argumentNode in ipairs(node.arguments) do
-			if argumentNode.type ~= "guard" then
-				local argument = GenerateUniqueIdentifier(state)
-				arguments[i] = argument
-				PushBinding(state, argumentNode.data, argument)
-				numberOfBindings = numberOfBindings + 1
-			end
-		end
-		
-		for i, argumentNode in ipairs(node.arguments) do
-			if argumentNode.type == "identifier" then
-				local argument = arguments[i]
-			elseif argumentNode.type == "guard" then
-				lastDefinition = {"branch", Generate(argumentNode.expression, state), , lastDefinition}
-				if not rootBody then rootBody = body end
-			else
-				error("Not yet implemented")
-			end
-		end
-		
-		local numberOfActualArguments = 0
-		for i, argumentNode in ipairs(node.arguments) do
-			if argumentNode.type == "identifier" then
-				local argument = GenerateUniqueIdentifier(state)
-				PushBinding(state, argumentNode.data, argument)
-				--functionValue[#functionValue + 1] = argument
-				functionBodyValue[nextFunctionBodyValueIndex] = {"closure", }functionBodyValue
-				nextFunctionBodyValueIndex = 
-				numberOfBindings = numberOfBindings + 1
-				numberOfActualArguments = numberOfActualArguments + 1
-				elseif argumentNode.type == "guard" then
-				body = {"branch", Generate(argumentNode.expression, state), {"call", }, {"loadundefined"}}
-				if not rootBody then rootBody = body end
-			else
-				error("Not yet implemented")
-			end
-		end
-		
-		--local body = Generate(node.body, state)
-		
-		local followingContext = Generate(node.followingContext, state)
-		
-		for i = 1, numberOfBindings do
-			PopBinding(state)
-		end
-		
-		PopBinding(state)
-		PopBinding(state)
-		--PopBinding(state)
-		
-		return followingContext
-		error("Not yet implemented")]]
 	elseif node.type == "assignment" then
 		if node.destination.type ~= "identifier" then error("Not yet implemented") end
 		local source = Generate(node.source, state)

@@ -1,6 +1,7 @@
 local Lex = require "Lex"
 local Parse = require "Parse"
 local GenerateFIR = require "GenerateFIR"
+local GenerateL2 = require "GenerateL2"
 local TableToString = require "TableToString"
 local Tests = {
 	{input = "a = 1; a"},
@@ -44,4 +45,8 @@ for testName, test in pairs(Tests) do
 	if not status then
 		print(errorData)
 	end
+	
+	print("GenerateL2(...) = ")
+	local l2 = GenerateL2(fir)
+	print(TableToString(l2))
 end
