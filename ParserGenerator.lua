@@ -2,31 +2,34 @@ local Tokens = {"Natural", "Identifier", "String", "Assign", "OpeningParenthesis
 local Rules = {
 	{type = "program", "openexpression", "Done", action = "return arguments[0];"},
 	
-	{type = "openexpression", "branch", action = ""},
-	{type = "openexpression", "assignment", action = ""},
-	{type = "openexpression", "chainedexpression", action = ""},
+	{type = "openexpression", "branch", action = "return arguments[0];"},
+	{type = "openexpression", "assignment", action = "return arguments[0];"},
+	{type = "openexpression", "chainedexpression", action = "return arguments[0];"},
 	
-	{type = "branch", "chainedexpression", "QuestionMark", "chainedexpression", "Terminal", "openexpression", action = ""},
+	{type = "branch", "chainedexpression", "QuestionMark", "chainedexpression", "Terminal", "openexpression", action = "return CreateBranchNode(parser, arguments[0], arguments[2], arguments[4]);"},
 	
-	{type = "assignment", "closedexpression", "assignment_arguments", "Assign", "chainedexpression", "Terminal", "openexpression", action = ""},
+	{type = "assignment", "closedexpression", "assignment_arguments", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], arguments[1], arguments[3], arguments[5]);"},
 	
-	{type = "assignment_arguments", "assignment_target", "assignment_arguments", action = ""},
-	{type = "assignment_arguments", action = ""},
+	{type = "assignment_arguments", "assignment_target", "assignment_arguments", action = "return Cons(parser, arguments[0], arguments[1]);"},
+	{type = "assignment_arguments", action = "return NULL;"},
 	
-	{type = "assignment_target", "Identifier", action = ""},
-	{type = "assignment_target", "OpeningSquareBracket", "assignment_target_list_body", "ClosingSquareBracket", action = ""},
+	{type = "assignment_target", "Identifier", action = "return arguments[0];"},
+	{type = "assignment_target", "OpeningSquareBracket", "assignment_target_list_body", "ClosingSquareBracket", action = "return CreateListNode(parser, arguments[1]);"},
 	
-	{type = "assignment_target_list_body", "assignment_target", "Comma", "assignment_target_list_body", action = ""},
-	{type = "assignment_target_list_body", "assignment_target", "Comma", action = ""},
-	{type = "assignment_target_list_body", "assignment_target", action = ""},
+	{type = "assignment_target_list_body", "assignment_target", "Comma", "assignment_target_list_body", action = "return Cons(parser, arguments[0], arguments[2]);"},
+	{type = "assignment_target_list_body", "assignment_target", action = "return Cons(parser, arguments[0], NULL);"},
+	{type = "assignment_target_list_body", action = "return NULL;"},
 	
-	{type = "chainedexpression", "closedexpression", "chainedexpression", action = ""},
-	{type = "chainedexpression", "closedexpression", action = ""},
+	{type = "chainedexpression", "closedexpression", "chainedexpression_arguments", action = "return CreateCallNode(parser, arguments[0], arguments[1]);"},
+	{type = "chainedexpression", "closedexpression", action = "return arguments[0];"},
 	
-	{type = "closedexpression", "Identifier", action = ""},
-	{type = "closedexpression", "Natural", action = ""},
-	{type = "closedexpression", "String", action = ""},
-	{type = "closedexpression", "OpeningParenthesis", "openexpression", "ClosingParenthesis", action = ""},
+	{type = "chainedexpression_arguments", "closedexpression", "chainedexpression_arguments", action = "return Cons(parser, arguments[0], arguments[1]);"},
+	{type = "chainedexpression_arguments", "closedexpression", action = "return Cons(parser, arguments[0], NULL);"},
+	
+	{type = "closedexpression", "Identifier", action = "return arguments[0];"},
+	{type = "closedexpression", "Natural", action = "return arguments[0];"},
+	{type = "closedexpression", "String", action = "return arguments[0];"},
+	{type = "closedexpression", "OpeningParenthesis", "openexpression", "ClosingParenthesis", action = "return arguments[1];"},
 }
 
 do
@@ -45,7 +48,8 @@ do
 		end
 	end
 	--Start outputting stuff
-	local output = {"#include <stdint.h>\n"}
+	local output = {}
+	--{"#include <stdint.h>\n"}
 	--Generate the symbol strings
 	for i, rule in ipairs(Rules) do
 		output[#output + 1] = "static uint8_t rule_string_"
@@ -65,17 +69,17 @@ do
 	--Generate the action handler
 	output[#output + 1] = "static void* HandleAction(L1Parser* parser, void* arguments[], Rule rule)\n{\n\tswitch(rule.action)\n\t{\n"
 	for i, rule in ipairs(Rules) do
-		output[#output + 1] = "\t\tcase "
 		local action = actions[rule.action]
 		if not action then
 			action = actionID
 			actions[rule.action] = action
 			actionID = actionID + 1
+			output[#output + 1] = "\t\tcase "
+			output[#output + 1] = tostring(action)
+			output[#output + 1] = ":{"
+			output[#output + 1] = rule.action
+			output[#output + 1] = "} break;\n"
 		end
-		output[#output + 1] = tostring(action)
-		output[#output + 1] = ":{"
-		output[#output + 1] = rule.action
-		output[#output + 1] = "} break;\n"
 	end
 	output[#output + 1] = "\t\tdefault: return NULL;\n\t}\n\treturn NULL;\n}\n"
 	--Generate the rule table
@@ -94,6 +98,9 @@ do
 		output[#output + 1] = "}, "
 	end
 	output[#output + 1] = "};\n"
+	output[#output + 1] = "uint8_t ProgramSymbol = "
+	output[#output + 1] = tostring(identifiers["program"])
+	output[#output + 1] = ";\n"
 	print(table.concat(output, ""))
 end
 

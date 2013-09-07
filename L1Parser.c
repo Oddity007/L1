@@ -78,7 +78,7 @@ struct Rule
 		symbol,
 		symbolCount,
 		action;
-}
+};
 
 static void* HandleAction(L1Parser* self, void* matchedSymbolData[], Rule rule);
 
@@ -142,7 +142,56 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 			}
 		}
 	}
+	return 0;
 }
+
+static const L1ParserASTNodeLinkedList* Cons(L1Parser* parser, const L1ParserASTNode* head, const L1ParserASTNodeLinkedList* tail)
+{
+	L1ParserASTNodeLinkedList* list = L1RegionAllocate(parser->region, sizeof(L1ParserASTNodeLinkedList));
+	list->head = head;
+	list->tail = tail;
+	return list;
+}
+
+static L1ParserASTNode* CreateListNode(L1Parser* parser, const L1ParserASTNodeLinkedList* elements)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeList;
+	node->data.list.elements = elements;
+	return node;
+}
+
+static L1ParserASTNode* CreateBranchNode(L1Parser* parser, const L1ParserASTNode* condition, const L1ParserASTNode* resultIfTrue, const L1ParserASTNode* resultIfFalse)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeBranch;
+	node->data.branch.condition = condition;
+	node->data.branch.resultIfTrue = resultIfTrue;
+	node->data.branch.resultIfFalse = resultIfFalse;
+	return node;
+}
+
+static L1ParserASTNode* CreateAssignmentNode(L1Parser* parser, const L1ParserASTNode* destination, const L1ParserASTNodeLinkedList* arguments, const L1ParserASTNode* source, const L1ParserASTNode* followingContext)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeAssignment;
+	node->data.assignment.destination = destination;
+	node->data.assignment.arguments = arguments;
+	node->data.assignment.source = source;
+	node->data.assignment.followingContext = followingContext;
+	return node;
+}
+
+static L1ParserASTNode* CreateCallNode(L1Parser* parser, const L1ParserASTNode* callee, const L1ParserASTNodeLinkedList* arguments)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeCall;
+	node->data.call.callee = callee;
+	node->data.call.arguments = arguments;
+	return node;
+}
+
+#include "L1ParserGeneratedPortion"
 
 L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
 {
@@ -150,9 +199,9 @@ L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
 	self->region = L1RegionNew();
 	uint64_t readCount = 0;
 	void* rootASTNode = NULL;
-	if(not Parse(self, tokens, tokenCount, & rootASTNode))
+	if(not Parse(self, tokens, tokenCount, & rootASTNode, ProgramSymbol, Rules, sizeof(Rules)/sizeof(Rule)))
 	{
-		
+		abort();
 	}
 	self->rootASTNode = rootASTNode;
 	return self;

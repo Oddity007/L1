@@ -23,8 +23,15 @@ enum L1ParserASTNodeType
 };
 
 typedef enum L1ParserASTNodeType L1ParserASTNodeType;
-
 typedef struct L1ParserASTNode L1ParserASTNode;
+typedef struct L1ParserASTNodeLinkedList L1ParserASTNodeLinkedList;
+
+struct L1ParserASTNodeLinkedList
+{
+	const L1ParserASTNode* head;
+	const L1ParserASTNodeLinkedList* tail;
+};
+
 struct L1ParserASTNode
 {
 	L1ParserASTNodeType type;
@@ -48,14 +55,12 @@ struct L1ParserASTNode
 		struct
 		{
 			const L1ParserASTNode* callee;
-			const L1ParserASTNode** arguments;
-			uint64_t argumentCount;
+			const L1ParserASTNodeLinkedList* arguments;
 		}call;
 		struct
 		{
 			const L1ParserASTNode* destination;
-			const L1ParserASTNode** arguments;
-			uint64_t argumentCount;
+			const L1ParserASTNodeLinkedList* arguments;
 			const L1ParserASTNode* source;
 			const L1ParserASTNode* followingContext;
 		}assignment;
@@ -67,8 +72,7 @@ struct L1ParserASTNode
 		}branch;
 		struct
 		{
-			L1ParserASTNode* elements;
-			uint64_t elementCount;
+			const L1ParserASTNodeLinkedList* elements;
 		}list;
 	}data;
 };
