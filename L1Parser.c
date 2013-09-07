@@ -70,79 +70,77 @@ closedexpression = string
 closedexpression = openingparenthesis openexpression closingparenthesis
 */
 
-typedef struct RuleNode RuleNode;
-struct RuleNode
+typedef struct Rule Rule;
+struct Rule
 {
-	uint8_t id;
-	void (*action)(void** nodeDatas, uint64_t nodeDataCount);
-	RuleNode** children;
-	uint64_t childCount;
-};
-
-static uint64_t ParseBranch(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t tokenCount, void** returnedData)
-{
-	*returnedData = NULL;
-	uint64_t readCount = 0;
-	void* subdata = NULL;
-	readCount = ParseChainedExpression(self, tokens, tokenCount, & subdata);
-	if(readCount)
-	{
-		*returnedData = subdata;
-		return readCount;
-	}
-	readCount = ParseAssignment(self, tokens, tokenCount, & subdata);
-	if(readCount)
-	{
-		*returnedData = subdata;
-		return readCount;
-	}
-	readCount = ParseChainedExpression(self, tokens, tokenCount, & subdata);
-	if(readCount)
-	{
-		*returnedData = subdata;
-		return readCount;
-	}
-	return 0;
+	uint8_t* symbols;
+	uint8_t
+		symbol,
+		symbolCount,
+		action;
 }
 
-static uint64_t ParseOpenExpression(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t tokenCount, void** returnedData)
-{
-	*returnedData = NULL;
-	uint64_t readCount = 0;
-	void* subdata = NULL;
-	readCount = ParseBranch(self, tokens, tokenCount, & subdata);
-	if(readCount)
-	{
-		*returnedData = subdata;
-		return readCount;
-	}
-	readCount = ParseAssignment(self, tokens, tokenCount, & subdata);
-	if(readCount)
-	{
-		*returnedData = subdata;
-		return readCount;
-	}
-	readCount = ParseChainedExpression(self, tokens, tokenCount, & subdata);
-	if(readCount)
-	{
-		*returnedData = subdata;
-		return readCount;
-	}
-	return 0;
-}
+static void* HandleAction(L1Parser* self, void* matchedSymbolData[], Rule rule);
 
-
-static uint64_t ParseProgram(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t tokenCount, void** data)
+static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t tokenCount, void** data, uint8_t currentNonterminalSymbol, const Rule* rules, uint64_t ruleCount)
 {
-	
-	return tokenCount;
-}
-
-static L1ParserASTNode* Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t tokenCount, uint64_t* readCount)
-{
+	*data = NULL;
 	for (uint64_t i = 0; i < tokenCount; i++)
 	{
-		
+		const Rule rule = rules[i];
+		if (rule.symbol == currentNonterminalSymbol)
+		{
+			void* matchedSymbolData[rule.symbolCount];
+			bool matched = true;
+			uint64_t currentTokenIndex = 0;
+			for (uint8_t j = 0; j < rule.symbolCount; j++)
+			{
+				matchedSymbolData[j] = NULL;
+				uint8_t symbol = rule.symbols[j];
+				if(currentTokenIndex >= tokenCount)
+				{
+					matched = false;
+					break;
+				}
+				if(tokens[currentTokenIndex].type == symbol)
+				{
+					matchedSymbolData[j] = ParserASTNodeFromToken(self, tokens + currentTokenIndex);
+					currentTokenIndex++;
+				}
+				else
+				{
+					bool symbolIsRule = false;
+					for (uint64_t k = 0; k < ruleCount; k++)
+					{
+						if(symbol == rules[k].symbol)
+						{
+							symbolIsRule = true;
+							break;
+						}
+					}
+					if(symbolIsRule)
+					{
+						uint64_t tokensRead = Parse(self, tokens + currentTokenIndex, tokenCount - currentTokenIndex, matchedSymbolData + j, symbol, rules, ruleCount);
+						if(not tokensRead)
+						{
+							matched = false;
+							break;
+						}
+						currentTokenIndex += tokensRead;
+					}
+					else
+					{
+						matched = false;
+						break;
+					}
+				}
+			}
+			if(matched)
+			{
+				*data = HandleAction(self, matchedSymbolData, rule);
+				return currentTokenIndex;
+			}
+		}
 	}
 }
 
@@ -151,7 +149,12 @@ L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
 	L1Parser* self = calloc(1, sizeof(L1Parser));
 	self->region = L1RegionNew();
 	uint64_t readCount = 0;
-	self->rootASTNode = Parse(self, tokens, tokenCount - 1, & readCount);
+	void* rootASTNode = NULL;
+	if(not Parse(self, tokens, tokenCount, & rootASTNode))
+	{
+		
+	}
+	self->rootASTNode = rootASTNode;
 	return self;
 }
 

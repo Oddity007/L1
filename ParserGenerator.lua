@@ -23,3 +23,4 @@ bool program(Token* tokens, uint64_t tokenCount, void** data, uint64_t* tokenInd
 		outputStatements[#outputStatements + 1] = "}"
 	end
 end]]
+
