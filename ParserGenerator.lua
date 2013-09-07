@@ -101,6 +101,9 @@ do
 	output[#output + 1] = "uint8_t ProgramSymbol = "
 	output[#output + 1] = tostring(identifiers["program"])
 	output[#output + 1] = ";\n"
+	output[#output + 1] = "uint8_t RuleCount = "
+	output[#output + 1] = tostring(#Rules)
+	output[#output + 1] = ";\n"
 	print(table.concat(output, ""))
 end
 

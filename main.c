@@ -11,8 +11,8 @@ int main(void)
 	L1Array tokenArray;
 	L1ArrayInitialize(& tokenArray);
 	L1Region* tokenDataRegion = L1RegionNew();
-	L1LexerTokenType tokenType;
-	/*do
+	/*L1LexerTokenType tokenType;
+	do
 	{
 		L1LexerLexNext(lexer, & tokenType);
 		switch (tokenType)
@@ -77,15 +77,14 @@ int main(void)
 	{
 		L1LexerLexNext(lexer, & token.type);
 		token.bytes = L1LexerGetLastTokenBytes(lexer, & token.byteCount);
-	}while (tokenType not_eq L1LexerTokenTypeDone);
+		L1ArrayAppend(& tokenArray, & token, sizeof(token));
+	}while (token.type not_eq L1LexerTokenTypeDone);
 	L1LexerDelete(lexer);
 	
 	L1Parser* parser = L1ParserNew(L1ArrayGetElements(& tokenArray), L1ArrayGetElementCount(& tokenArray));
 	const L1ParserASTNode* rootASTNode = L1ParserGetRootASTNode(parser);
-	
-	
-	
 	L1ParserDelete(parser);
+	
 	L1ArrayDeinitialize(& tokenArray);
 	L1RegionDelete(tokenDataRegion);
 	return 0;

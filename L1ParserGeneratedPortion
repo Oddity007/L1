@@ -39,4 +39,5 @@ static void* HandleAction(L1Parser* parser, void* arguments[], Rule rule)
 }
 static Rule Rules[] = {{rule_string_1, 12, 2, 0}, {rule_string_2, 13, 1, 0}, {rule_string_3, 13, 1, 0}, {rule_string_4, 13, 1, 0}, {rule_string_5, 14, 5, 1}, {rule_string_6, 15, 6, 2}, {rule_string_7, 16, 2, 3}, {rule_string_8, 16, 0, 4}, {rule_string_9, 17, 1, 0}, {rule_string_10, 17, 3, 5}, {rule_string_11, 18, 3, 6}, {rule_string_12, 18, 1, 7}, {rule_string_13, 18, 0, 4}, {rule_string_14, 19, 2, 8}, {rule_string_15, 19, 1, 0}, {rule_string_16, 20, 2, 3}, {rule_string_17, 20, 1, 7}, {rule_string_18, 21, 1, 0}, {rule_string_19, 21, 1, 0}, {rule_string_20, 21, 1, 0}, {rule_string_21, 21, 3, 9}, };
 uint8_t ProgramSymbol = 12;
+uint8_t RuleCount = 21;
 

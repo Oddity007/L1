@@ -197,9 +197,8 @@ L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
 {
 	L1Parser* self = calloc(1, sizeof(L1Parser));
 	self->region = L1RegionNew();
-	uint64_t readCount = 0;
 	void* rootASTNode = NULL;
-	if(not Parse(self, tokens, tokenCount, & rootASTNode, ProgramSymbol, Rules, sizeof(Rules)/sizeof(Rule)))
+	if(not Parse(self, tokens, tokenCount, & rootASTNode, ProgramSymbol, Rules, RuleCount))
 	{
 		abort();
 	}
