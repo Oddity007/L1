@@ -61,6 +61,11 @@ local Rules = {
 	{type = "closedexpression", "Natural", action = "return arguments[0];"},
 	{type = "closedexpression", "String", action = "return arguments[0];"},
 	{type = "closedexpression", "OpeningParenthesis", "openexpression", "ClosingParenthesis", action = "return arguments[1];"},
+	{type = "closedexpression", "OpeningSquareBracket", "list_body", "ClosingSquareBracket", action = "return CreateListNode(parser, arguments[1]);"},
+	
+	{type = "list_body", "chainedexpression", "Comma", "list_body", action = "return Cons(parser, arguments[0], arguments[2]);"},
+	{type = "list_body", "chainedexpression", action = "return Cons(parser, arguments[0], NULL);"},
+	{type = "list_body", action = "return NULL;"},
 }
 
 do

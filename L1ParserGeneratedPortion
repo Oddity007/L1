@@ -18,6 +18,10 @@ static uint8_t rule_string_17[1] = {1, };
 static uint8_t rule_string_18[1] = {0, };
 static uint8_t rule_string_19[1] = {2, };
 static uint8_t rule_string_20[3] = {4, 13, 5, };
+static uint8_t rule_string_21[3] = {6, 21, 7, };
+static uint8_t rule_string_22[3] = {18, 8, 21, };
+static uint8_t rule_string_23[1] = {18, };
+static uint8_t rule_string_24[0] = {};
 static void* HandleAction(L1Parser* parser, void* arguments[], Rule rule)
 {
 	switch(rule.action)
@@ -37,7 +41,7 @@ static void* HandleAction(L1Parser* parser, void* arguments[], Rule rule)
 	}
 	return NULL;
 }
-static Rule Rules[] = {{rule_string_1, 12, 2, 0}, {rule_string_2, 13, 1, 0}, {rule_string_3, 13, 1, 0}, {rule_string_4, 13, 1, 0}, {rule_string_5, 14, 5, 1}, {rule_string_6, 15, 5, 2}, {rule_string_7, 15, 6, 3}, {rule_string_8, 16, 1, 0}, {rule_string_9, 16, 3, 4}, {rule_string_10, 17, 3, 5}, {rule_string_11, 17, 1, 6}, {rule_string_12, 17, 0, 7}, {rule_string_13, 18, 2, 8}, {rule_string_14, 18, 1, 0}, {rule_string_15, 19, 2, 9}, {rule_string_16, 19, 1, 6}, {rule_string_17, 20, 1, 0}, {rule_string_18, 20, 1, 0}, {rule_string_19, 20, 1, 0}, {rule_string_20, 20, 3, 10}, };
+static Rule Rules[] = {{rule_string_1, 12, 2, 0}, {rule_string_2, 13, 1, 0}, {rule_string_3, 13, 1, 0}, {rule_string_4, 13, 1, 0}, {rule_string_5, 14, 5, 1}, {rule_string_6, 15, 5, 2}, {rule_string_7, 15, 6, 3}, {rule_string_8, 16, 1, 0}, {rule_string_9, 16, 3, 4}, {rule_string_10, 17, 3, 5}, {rule_string_11, 17, 1, 6}, {rule_string_12, 17, 0, 7}, {rule_string_13, 18, 2, 8}, {rule_string_14, 18, 1, 0}, {rule_string_15, 19, 2, 9}, {rule_string_16, 19, 1, 6}, {rule_string_17, 20, 1, 0}, {rule_string_18, 20, 1, 0}, {rule_string_19, 20, 1, 0}, {rule_string_20, 20, 3, 10}, {rule_string_21, 20, 3, 4}, {rule_string_22, 21, 3, 5}, {rule_string_23, 21, 1, 6}, {rule_string_24, 21, 0, 7}, };
 uint8_t ProgramSymbol = 12;
-uint8_t RuleCount = 20;
+uint8_t RuleCount = 24;
 
