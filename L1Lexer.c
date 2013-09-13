@@ -11,6 +11,7 @@ struct L1Lexer
 	L1LexerTokenType lastTokenType;
 	uint64_t currentLineNumber;
 	const uint8_t* inputBytes;
+	L1LexerErrorType lastErrorType;
 };
 
 L1Lexer* L1LexerNew(const uint8_t* nullTerminatedUTF8Bytes)
@@ -39,6 +40,7 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 	assert(tokenType);
 	ClearBuffer(self);
 	*tokenType = L1LexerTokenTypeDone;
+	assert(self->lastErrorType == L1LexerErrorTypeNone);
 	while(*self->inputBytes)
 	{
 		switch (*self->inputBytes)
@@ -86,12 +88,15 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 				if(self->inputBytes[1] == '/')
 				{
 					while(*self->inputBytes and *self->inputBytes not_eq '\n') self->inputBytes++;
+					break;
 				}
 				else
 				{
-					abort();
+					self->lastErrorType = L1LexerErrorTypeInvalidSequence;
+					*tokenType = L1LexerTokenTypeDone;
+					goto end;
 				}
-				goto end;
+				break;
 			case '"':
 				*tokenType = L1LexerTokenTypeString;
 				self->inputBytes++;
@@ -122,8 +127,9 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 									AddCharacterToBuffer(self, '\t');
 									break;
 								default:
-									abort();
-									break;
+									self->lastErrorType = L1LexerErrorTypeInvalidSequence;
+									*tokenType = L1LexerTokenTypeDone;
+									goto end;
 							}
 							break;
 						case '\n':
@@ -134,7 +140,9 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 					}
 					self->inputBytes++;
 				}
-				abort();
+				self->lastErrorType = L1LexerErrorTypeStringDidNotTerminate;
+				*tokenType = L1LexerTokenTypeDone;
+				goto end;
 			default:
 				while (*self->inputBytes and *self->inputBytes >= '0' and *self->inputBytes <= '9')
 				{
@@ -174,6 +182,11 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 uint64_t L1LexerGetCurrentLineNumber(L1Lexer* self)
 {
 	return self->currentLineNumber;
+}
+
+L1LexerErrorType L1LexerGetError(L1Lexer* self)
+{
+	return self->lastErrorType;
 }
 
 const uint8_t* L1LexerGetLastTokenBytes(L1Lexer* self, uint64_t* byteCount)

@@ -5,6 +5,7 @@
 #include "L1Array.h"
 #include "L1Region.h"
 #include <string.h>
+#include <assert.h>
 
 static void PrintASTNode(const L1ParserASTNode* node, int indentLevel)
 {
@@ -111,6 +112,7 @@ int main(void)
 	do
 	{
 		L1LexerLexNext(lexer, & token.type);
+		assert(L1LexerErrorTypeNone == L1LexerGetError(lexer));
 		const void* bytes = L1LexerGetLastTokenBytes(lexer, & token.byteCount);
 		token.bytes = memcpy(L1RegionAllocate(tokenDataRegion, token.byteCount), bytes, token.byteCount);
 		//fwrite(bytes, token.byteCount, 1, stdout);
@@ -118,6 +120,7 @@ int main(void)
 		//token.byteCount = 0;
 		//token.bytes = NULL;
 		L1ArrayAppend(& tokenArray, & token, sizeof(token));
+		fputc('\t', stdout);
 		switch (token.type)
 		{
 			case L1LexerTokenTypeNatural:

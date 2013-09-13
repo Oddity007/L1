@@ -88,7 +88,7 @@ do
 	--{"#include <stdint.h>\n"}
 	--Generate the symbol strings
 	for i, rule in ipairs(Rules) do
-		output[#output + 1] = "static uint8_t rule_string_"
+		output[#output + 1] = "static const uint8_t rule_string_"
 		output[#output + 1] = tostring(i)
 		output[#output + 1] = "["
 		output[#output + 1] = tostring(#rule)
@@ -103,7 +103,7 @@ do
 	local actions = {}
 	local actionID = 0
 	--Generate the action handler
-	output[#output + 1] = "static void* HandleAction(L1Parser* parser, void* arguments[], Rule rule)\n{\n\tswitch(rule.action)\n\t{\n"
+	output[#output + 1] = "static const void* HandleAction(L1Parser* parser, const void* arguments[], Rule rule)\n{\n\tswitch(rule.action)\n\t{\n"
 	for i, rule in ipairs(Rules) do
 		local action = actions[rule.action]
 		if not action then
@@ -119,7 +119,7 @@ do
 	end
 	output[#output + 1] = "\t\tdefault: return NULL;\n\t}\n\treturn NULL;\n}\n"
 	--Generate the rule table
-	output[#output + 1] = "static Rule Rules[] = {"
+	output[#output + 1] = "static const Rule Rules[] = {"
 	for i, rule in ipairs(Rules) do
 		output[#output + 1] = "{"
 		output[#output + 1] = "rule_string_"
@@ -134,10 +134,10 @@ do
 		output[#output + 1] = "}, "
 	end
 	output[#output + 1] = "};\n"
-	output[#output + 1] = "uint8_t ProgramSymbol = "
+	output[#output + 1] = "static const uint8_t ProgramSymbol = "
 	output[#output + 1] = tostring(identifiers["program"])
 	output[#output + 1] = ";\n"
-	output[#output + 1] = "uint8_t RuleCount = "
+	output[#output + 1] = "static const uint8_t RuleCount = "
 	output[#output + 1] = tostring(#Rules)
 	output[#output + 1] = ";\n"
 	print(table.concat(output, ""))

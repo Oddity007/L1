@@ -13,7 +13,7 @@ struct L1Parser
 	L1Region* region;
 };
 
-#include <stdio.h>
+//#include <stdio.h>
 
 static void* CloneBytes(L1Parser* parser, const void* bytes, size_t byteCount)
 {
@@ -81,28 +81,28 @@ closedexpression = openingparenthesis openexpression closingparenthesis
 typedef struct Rule Rule;
 struct Rule
 {
-	uint8_t* symbols;
+	const uint8_t* symbols;
 	uint8_t
 		symbol,
 		symbolCount,
 		action;
 };
 
-static void* HandleAction(L1Parser* self, void* matchedSymbolData[], Rule rule);
+static const void* HandleAction(L1Parser* self, const void* matchedSymbolData[], Rule rule);
 
-static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t tokenCount, void** data, uint8_t currentNonterminalSymbol, const Rule* rules, uint64_t ruleCount)
+static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t tokenCount, const void** data, uint8_t currentNonterminalSymbol, const Rule* rules, uint64_t ruleCount)
 {
 	*data = NULL;
 	for (uint64_t i = 0; i < ruleCount; i++)
 	{
 		const Rule rule = rules[i];
-		printf("rule %lu has symbol %lu, as viewed by nonterminal %lu\n", (unsigned long) i, (unsigned long) rule.symbol, (unsigned long) currentNonterminalSymbol);
+		//printf("rule %lu has symbol %lu, as viewed by nonterminal %lu\n", (unsigned long) i, (unsigned long) rule.symbol, (unsigned long) currentNonterminalSymbol);
 		if (rule.symbol == currentNonterminalSymbol)
 		{
-			void* matchedSymbolData[rule.symbolCount];
+			const void* matchedSymbolData[rule.symbolCount];
 			bool matched = true;
 			uint64_t currentTokenIndex = 0;
-			printf("(rule %lu, nonterminal: %lu)\n", (unsigned long) i, (unsigned long)currentNonterminalSymbol);
+			//printf("(rule %lu, nonterminal: %lu)\n", (unsigned long) i, (unsigned long)currentNonterminalSymbol);
 			for (uint8_t j = 0; j < rule.symbolCount; j++)
 			{
 				matchedSymbolData[j] = NULL;
@@ -112,10 +112,10 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 					matched = false;
 					break;
 				}
-				puts("heh");
+				//puts("heh");
 				if(tokens[currentTokenIndex].type == symbol)
 				{
-					puts("lo");
+					//puts("lo");
 					matchedSymbolData[j] = ParserASTNodeFromToken(self, tokens + currentTokenIndex);
 					currentTokenIndex++;
 				}
@@ -132,7 +132,7 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 					}
 					if(symbolIsRule)
 					{
-						printf("(calling parse with symbol %lu, nonterminal: %lu)\n", (unsigned long) symbol, (unsigned long)currentNonterminalSymbol);
+						//printf("(calling parse with symbol %lu, nonterminal: %lu)\n", (unsigned long) symbol, (unsigned long)currentNonterminalSymbol);
 						uint64_t tokensRead = Parse(self, tokens + currentTokenIndex, tokenCount - currentTokenIndex, matchedSymbolData + j, symbol, rules, ruleCount);
 						if(not tokensRead)
 						{
@@ -143,7 +143,7 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 					}
 					else
 					{
-						printf("(failing match because it is not a symbol, with symbol %lu, nonterminal: %lu)\n", (unsigned long) symbol, (unsigned long)currentNonterminalSymbol);
+						//printf("(failing match because it is not a symbol, with symbol %lu, nonterminal: %lu)\n", (unsigned long) symbol, (unsigned long)currentNonterminalSymbol);
 						matched = false;
 						break;
 					}
@@ -156,7 +156,7 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 			}
 		}
 	}
-	printf("(first token type: %lu, nonterminal: %lu)\n", (long unsigned) tokens->type, (long unsigned) currentNonterminalSymbol);
+	//printf("(first token type: %lu, nonterminal: %lu)\n", (long unsigned) tokens->type, (long unsigned) currentNonterminalSymbol);
 	return 0;
 }
 
@@ -212,7 +212,7 @@ L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
 {
 	L1Parser* self = calloc(1, sizeof(L1Parser));
 	self->region = L1RegionNew();
-	void* rootASTNode = NULL;
+	const void* rootASTNode = NULL;
 	if(not Parse(self, tokens, tokenCount, & rootASTNode, ProgramSymbol, Rules, RuleCount))
 	{
 		abort();
