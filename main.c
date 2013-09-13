@@ -103,7 +103,7 @@ static void PrintASTNode(const L1ParserASTNode* node, int indentLevel)
 
 int main(void)
 {
-	L1Lexer* lexer = L1LexerNew((const uint8_t*)"f a = (a 1 2 ? 1; 0); [c, d] = z \"a\"; [e, g] = [4, 5]; f");
+	L1Lexer* lexer = L1LexerNew((const uint8_t*)"f a = (a 1 2 ? 1; 0); //asdfawef \n [c, d] = z \"a\"; [e, g] = [4, 5]; f /*asdfasdf*/");
 	L1Array tokenArray;
 	L1ArrayInitialize(& tokenArray);
 	L1Region* tokenDataRegion = L1RegionNew();

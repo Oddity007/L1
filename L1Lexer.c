@@ -90,6 +90,13 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 					while(*self->inputBytes and *self->inputBytes not_eq '\n') self->inputBytes++;
 					break;
 				}
+				else if (self->inputBytes[1] == '*')
+				{
+					self->inputBytes += 2;
+					while(*self->inputBytes and self->inputBytes[0] not_eq '*' and self->inputBytes[1] not_eq '/') self->inputBytes++;
+					self->inputBytes += 2;
+					break;
+				}
 				else
 				{
 					self->lastErrorType = L1LexerErrorTypeInvalidSequence;
@@ -153,7 +160,7 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 				if(*tokenType == L1LexerTokenTypeNatural) goto end;
 				
 				*tokenType = L1LexerTokenTypeIdentifier;
-				const uint8_t reservedCharacters[] = " \n\t\r=()[]\",;?";
+				const uint8_t reservedCharacters[] = " \n\t\r=()[]\",;?/";
 				const uint8_t* rcp;
 				while (*self->inputBytes)
 				{

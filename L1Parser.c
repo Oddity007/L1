@@ -50,34 +50,6 @@ static L1ParserASTNode* ParserASTNodeFromToken(L1Parser* self, const L1ParserLex
 	return node;
 }
 
-/*
-program = openexpression done
-
-openexpression = branch
-openexpression = assignment
-openexpression = chainedexpression
-
-branch = chainedexpression questionmark chainedexpression terminal openexpression
-
-assignment = closedexpression assignment_arguments assign chainedexpression terminal openexpression
-assignment_arguments = assignment_target assignment_arguments
-assignment_arguments = .
-assignment_target = identifier
-assignment_target = openingsquarebracket assignment_target_list_body closingsquarebracket
-assignment_target_list_body = assignment_target comma assignment_target_list_body
-assignment_target_list_body = assignment_target comma
-assignment_target_list_body = assignment_target
-assignment_arguments = closedexpression
-
-chainedexpression = closedexpression chainedexpression
-chainedexpression = closedexpression
-
-closedexpression = identifier
-closedexpression = natural
-closedexpression = string
-closedexpression = openingparenthesis openexpression closingparenthesis
-*/
-
 typedef struct Rule Rule;
 struct Rule
 {
@@ -96,13 +68,11 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 	for (uint64_t i = 0; i < ruleCount; i++)
 	{
 		const Rule rule = rules[i];
-		//printf("rule %lu has symbol %lu, as viewed by nonterminal %lu\n", (unsigned long) i, (unsigned long) rule.symbol, (unsigned long) currentNonterminalSymbol);
 		if (rule.symbol == currentNonterminalSymbol)
 		{
 			const void* matchedSymbolData[rule.symbolCount];
 			bool matched = true;
 			uint64_t currentTokenIndex = 0;
-			//printf("(rule %lu, nonterminal: %lu)\n", (unsigned long) i, (unsigned long)currentNonterminalSymbol);
 			for (uint8_t j = 0; j < rule.symbolCount; j++)
 			{
 				matchedSymbolData[j] = NULL;
@@ -112,10 +82,8 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 					matched = false;
 					break;
 				}
-				//puts("heh");
 				if(tokens[currentTokenIndex].type == symbol)
 				{
-					//puts("lo");
 					matchedSymbolData[j] = ParserASTNodeFromToken(self, tokens + currentTokenIndex);
 					currentTokenIndex++;
 				}
@@ -132,7 +100,6 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 					}
 					if(symbolIsRule)
 					{
-						//printf("(calling parse with symbol %lu, nonterminal: %lu)\n", (unsigned long) symbol, (unsigned long)currentNonterminalSymbol);
 						uint64_t tokensRead = Parse(self, tokens + currentTokenIndex, tokenCount - currentTokenIndex, matchedSymbolData + j, symbol, rules, ruleCount);
 						if(not tokensRead)
 						{
@@ -143,7 +110,6 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 					}
 					else
 					{
-						//printf("(failing match because it is not a symbol, with symbol %lu, nonterminal: %lu)\n", (unsigned long) symbol, (unsigned long)currentNonterminalSymbol);
 						matched = false;
 						break;
 					}
@@ -156,7 +122,6 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 			}
 		}
 	}
-	//printf("(first token type: %lu, nonterminal: %lu)\n", (long unsigned) tokens->type, (long unsigned) currentNonterminalSymbol);
 	return 0;
 }
 
@@ -215,7 +180,7 @@ L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
 	const void* rootASTNode = NULL;
 	if(not Parse(self, tokens, tokenCount, & rootASTNode, ProgramSymbol, Rules, RuleCount))
 	{
-		abort();
+		rootASTNode = NULL;
 	}
 	self->rootASTNode = rootASTNode;
 	return self;
