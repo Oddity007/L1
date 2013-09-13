@@ -2,7 +2,7 @@
 
 all:
 	mkdir -p build
-	cd build && clang ../*.c -g -std=c11 -o l1c
+	cd build && clang ../*.c -g -O0 -std=c11 -o l1c
 
 run:
 	cd build && ./l1c

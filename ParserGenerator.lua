@@ -1,5 +1,5 @@
 local Tokens = {"Natural", "Identifier", "String", "Assign", "OpeningParenthesis", "ClosingParenthesis", "OpeningSquareBracket", "ClosingSquareBracket", "Comma", "Terminal", "QuestionMark", "Done",}
-local Rules = {
+--[[local Rules = {
 	{type = "program", "openexpression", "Done", action = "return arguments[0];"},
 	
 	{type = "openexpression", "branch", action = "return arguments[0];"},
@@ -12,6 +12,37 @@ local Rules = {
 	
 	{type = "assignment_arguments", "assignment_target", "assignment_arguments", action = "return Cons(parser, arguments[0], arguments[1]);"},
 	{type = "assignment_arguments", action = "return NULL;"},
+	
+	{type = "assignment_target", "Identifier", action = "return arguments[0];"},
+	{type = "assignment_target", "OpeningSquareBracket", "assignment_target_list_body", "ClosingSquareBracket", action = "return CreateListNode(parser, arguments[1]);"},
+	
+	{type = "assignment_target_list_body", "assignment_target", "Comma", "assignment_target_list_body", action = "return Cons(parser, arguments[0], arguments[2]);"},
+	{type = "assignment_target_list_body", "assignment_target", action = "return Cons(parser, arguments[0], NULL);"},
+	{type = "assignment_target_list_body", action = "return NULL;"},
+	
+	{type = "chainedexpression", "closedexpression", "chainedexpression_arguments", action = "return CreateCallNode(parser, arguments[0], arguments[1]);"},
+	{type = "chainedexpression", "closedexpression", action = "return arguments[0];"},
+	
+	{type = "chainedexpression_arguments", "closedexpression", "chainedexpression_arguments", action = "return Cons(parser, arguments[0], arguments[1]);"},
+	{type = "chainedexpression_arguments", "closedexpression", action = "return Cons(parser, arguments[0], NULL);"},
+	
+	{type = "closedexpression", "Identifier", action = "return arguments[0];"},
+	{type = "closedexpression", "Natural", action = "return arguments[0];"},
+	{type = "closedexpression", "String", action = "return arguments[0];"},
+	{type = "closedexpression", "OpeningParenthesis", "openexpression", "ClosingParenthesis", action = "return arguments[1];"},
+}]]
+local Rules = {
+	--{type = "program", "chainedexpression", "Done", action = "return arguments[0];"},
+	{type = "program", "openexpression", "Done", action = "return arguments[0];"},
+	
+	{type = "openexpression", "assignment", action = "return arguments[0];"},
+	{type = "openexpression", "branch", action = "return arguments[0];"},
+	{type = "openexpression", "chainedexpression", action = "return arguments[0];"},
+	
+	{type = "branch", "chainedexpression", "QuestionMark", "chainedexpression", "Terminal", "openexpression", action = "return CreateBranchNode(parser, arguments[0], arguments[2], arguments[4]);"},
+	
+	{type = "assignment", "assignment_target", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], NULL, arguments[2], arguments[4]);"},
+	{type = "assignment", "assignment_target", "assignment_target_list_body", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], arguments[1], arguments[3], arguments[5]);"},
 	
 	{type = "assignment_target", "Identifier", action = "return arguments[0];"},
 	{type = "assignment_target", "OpeningSquareBracket", "assignment_target_list_body", "ClosingSquareBracket", action = "return CreateListNode(parser, arguments[1]);"},

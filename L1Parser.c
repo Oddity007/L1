@@ -5,12 +5,20 @@
 #include "L1Array.h"
 #include "L1Lexer.h"
 #include <stdbool.h>
+#include <string.h>
 
 struct L1Parser
 {
-	L1ParserASTNode* rootASTNode;
+	const L1ParserASTNode* rootASTNode;
 	L1Region* region;
 };
+
+#include <stdio.h>
+
+static void* CloneBytes(L1Parser* parser, const void* bytes, size_t byteCount)
+{
+	return memcpy(L1RegionAllocate(parser->region, byteCount), bytes, byteCount);
+}
 
 static L1ParserASTNode* ParserASTNodeFromToken(L1Parser* self, const L1ParserLexedToken* token)
 {
@@ -20,19 +28,19 @@ static L1ParserASTNode* ParserASTNodeFromToken(L1Parser* self, const L1ParserLex
 		case L1LexerTokenTypeNatural:
 			node = L1RegionAllocate(self->region, sizeof(L1ParserASTNode));
 			node->type = L1ParserASTNodeTypeNatural;
-			node->data.natural.bytes = token->bytes;
+			node->data.natural.bytes = CloneBytes(self, token->bytes, token->byteCount);
 			node->data.natural.byteCount = token->byteCount;
 			break;
 		case L1LexerTokenTypeString:
 			node = L1RegionAllocate(self->region, sizeof(L1ParserASTNode));
 			node->type = L1ParserASTNodeTypeString;
-			node->data.string.bytes = token->bytes;
+			node->data.string.bytes = CloneBytes(self, token->bytes, token->byteCount);
 			node->data.string.byteCount = token->byteCount;
 			break;
 		case L1LexerTokenTypeIdentifier:
 			node = L1RegionAllocate(self->region, sizeof(L1ParserASTNode));
 			node->type = L1ParserASTNodeTypeIdentifier;
-			node->data.identifier.bytes = token->bytes;
+			node->data.identifier.bytes = CloneBytes(self, token->bytes, token->byteCount);
 			node->data.identifier.byteCount = token->byteCount;
 			break;
 		default:
@@ -85,14 +93,16 @@ static void* HandleAction(L1Parser* self, void* matchedSymbolData[], Rule rule);
 static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t tokenCount, void** data, uint8_t currentNonterminalSymbol, const Rule* rules, uint64_t ruleCount)
 {
 	*data = NULL;
-	for (uint64_t i = 0; i < tokenCount; i++)
+	for (uint64_t i = 0; i < ruleCount; i++)
 	{
 		const Rule rule = rules[i];
+		printf("rule %lu has symbol %lu, as viewed by nonterminal %lu\n", (unsigned long) i, (unsigned long) rule.symbol, (unsigned long) currentNonterminalSymbol);
 		if (rule.symbol == currentNonterminalSymbol)
 		{
 			void* matchedSymbolData[rule.symbolCount];
 			bool matched = true;
 			uint64_t currentTokenIndex = 0;
+			printf("(rule %lu, nonterminal: %lu)\n", (unsigned long) i, (unsigned long)currentNonterminalSymbol);
 			for (uint8_t j = 0; j < rule.symbolCount; j++)
 			{
 				matchedSymbolData[j] = NULL;
@@ -102,8 +112,10 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 					matched = false;
 					break;
 				}
+				puts("heh");
 				if(tokens[currentTokenIndex].type == symbol)
 				{
+					puts("lo");
 					matchedSymbolData[j] = ParserASTNodeFromToken(self, tokens + currentTokenIndex);
 					currentTokenIndex++;
 				}
@@ -120,6 +132,7 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 					}
 					if(symbolIsRule)
 					{
+						printf("(calling parse with symbol %lu, nonterminal: %lu)\n", (unsigned long) symbol, (unsigned long)currentNonterminalSymbol);
 						uint64_t tokensRead = Parse(self, tokens + currentTokenIndex, tokenCount - currentTokenIndex, matchedSymbolData + j, symbol, rules, ruleCount);
 						if(not tokensRead)
 						{
@@ -130,6 +143,7 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 					}
 					else
 					{
+						printf("(failing match because it is not a symbol, with symbol %lu, nonterminal: %lu)\n", (unsigned long) symbol, (unsigned long)currentNonterminalSymbol);
 						matched = false;
 						break;
 					}
@@ -142,6 +156,7 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 			}
 		}
 	}
+	printf("(first token type: %lu, nonterminal: %lu)\n", (long unsigned) tokens->type, (long unsigned) currentNonterminalSymbol);
 	return 0;
 }
 

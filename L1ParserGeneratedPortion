@@ -1,43 +1,43 @@
 static uint8_t rule_string_1[2] = {13, 11, };
-static uint8_t rule_string_2[1] = {14, };
-static uint8_t rule_string_3[1] = {15, };
-static uint8_t rule_string_4[1] = {19, };
-static uint8_t rule_string_5[5] = {19, 10, 19, 9, 13, };
-static uint8_t rule_string_6[6] = {21, 16, 3, 19, 9, 13, };
-static uint8_t rule_string_7[2] = {17, 16, };
-static uint8_t rule_string_8[0] = {};
-static uint8_t rule_string_9[1] = {1, };
-static uint8_t rule_string_10[3] = {6, 18, 7, };
-static uint8_t rule_string_11[3] = {17, 8, 18, };
-static uint8_t rule_string_12[1] = {17, };
-static uint8_t rule_string_13[0] = {};
-static uint8_t rule_string_14[2] = {21, 20, };
-static uint8_t rule_string_15[1] = {21, };
-static uint8_t rule_string_16[2] = {21, 20, };
-static uint8_t rule_string_17[1] = {21, };
-static uint8_t rule_string_18[1] = {1, };
-static uint8_t rule_string_19[1] = {0, };
-static uint8_t rule_string_20[1] = {2, };
-static uint8_t rule_string_21[3] = {4, 13, 5, };
+static uint8_t rule_string_2[1] = {15, };
+static uint8_t rule_string_3[1] = {14, };
+static uint8_t rule_string_4[1] = {18, };
+static uint8_t rule_string_5[5] = {18, 10, 18, 9, 13, };
+static uint8_t rule_string_6[5] = {16, 3, 18, 9, 13, };
+static uint8_t rule_string_7[6] = {16, 17, 3, 18, 9, 13, };
+static uint8_t rule_string_8[1] = {1, };
+static uint8_t rule_string_9[3] = {6, 17, 7, };
+static uint8_t rule_string_10[3] = {16, 8, 17, };
+static uint8_t rule_string_11[1] = {16, };
+static uint8_t rule_string_12[0] = {};
+static uint8_t rule_string_13[2] = {20, 19, };
+static uint8_t rule_string_14[1] = {20, };
+static uint8_t rule_string_15[2] = {20, 19, };
+static uint8_t rule_string_16[1] = {20, };
+static uint8_t rule_string_17[1] = {1, };
+static uint8_t rule_string_18[1] = {0, };
+static uint8_t rule_string_19[1] = {2, };
+static uint8_t rule_string_20[3] = {4, 13, 5, };
 static void* HandleAction(L1Parser* parser, void* arguments[], Rule rule)
 {
 	switch(rule.action)
 	{
 		case 0:{return arguments[0];} break;
 		case 1:{return CreateBranchNode(parser, arguments[0], arguments[2], arguments[4]);} break;
-		case 2:{return CreateAssignmentNode(parser, arguments[0], arguments[1], arguments[3], arguments[5]);} break;
-		case 3:{return Cons(parser, arguments[0], arguments[1]);} break;
-		case 4:{return NULL;} break;
-		case 5:{return CreateListNode(parser, arguments[1]);} break;
-		case 6:{return Cons(parser, arguments[0], arguments[2]);} break;
-		case 7:{return Cons(parser, arguments[0], NULL);} break;
+		case 2:{return CreateAssignmentNode(parser, arguments[0], NULL, arguments[2], arguments[4]);} break;
+		case 3:{return CreateAssignmentNode(parser, arguments[0], arguments[1], arguments[3], arguments[5]);} break;
+		case 4:{return CreateListNode(parser, arguments[1]);} break;
+		case 5:{return Cons(parser, arguments[0], arguments[2]);} break;
+		case 6:{return Cons(parser, arguments[0], NULL);} break;
+		case 7:{return NULL;} break;
 		case 8:{return CreateCallNode(parser, arguments[0], arguments[1]);} break;
-		case 9:{return arguments[1];} break;
+		case 9:{return Cons(parser, arguments[0], arguments[1]);} break;
+		case 10:{return arguments[1];} break;
 		default: return NULL;
 	}
 	return NULL;
 }
-static Rule Rules[] = {{rule_string_1, 12, 2, 0}, {rule_string_2, 13, 1, 0}, {rule_string_3, 13, 1, 0}, {rule_string_4, 13, 1, 0}, {rule_string_5, 14, 5, 1}, {rule_string_6, 15, 6, 2}, {rule_string_7, 16, 2, 3}, {rule_string_8, 16, 0, 4}, {rule_string_9, 17, 1, 0}, {rule_string_10, 17, 3, 5}, {rule_string_11, 18, 3, 6}, {rule_string_12, 18, 1, 7}, {rule_string_13, 18, 0, 4}, {rule_string_14, 19, 2, 8}, {rule_string_15, 19, 1, 0}, {rule_string_16, 20, 2, 3}, {rule_string_17, 20, 1, 7}, {rule_string_18, 21, 1, 0}, {rule_string_19, 21, 1, 0}, {rule_string_20, 21, 1, 0}, {rule_string_21, 21, 3, 9}, };
+static Rule Rules[] = {{rule_string_1, 12, 2, 0}, {rule_string_2, 13, 1, 0}, {rule_string_3, 13, 1, 0}, {rule_string_4, 13, 1, 0}, {rule_string_5, 14, 5, 1}, {rule_string_6, 15, 5, 2}, {rule_string_7, 15, 6, 3}, {rule_string_8, 16, 1, 0}, {rule_string_9, 16, 3, 4}, {rule_string_10, 17, 3, 5}, {rule_string_11, 17, 1, 6}, {rule_string_12, 17, 0, 7}, {rule_string_13, 18, 2, 8}, {rule_string_14, 18, 1, 0}, {rule_string_15, 19, 2, 9}, {rule_string_16, 19, 1, 6}, {rule_string_17, 20, 1, 0}, {rule_string_18, 20, 1, 0}, {rule_string_19, 20, 1, 0}, {rule_string_20, 20, 3, 10}, };
 uint8_t ProgramSymbol = 12;
-uint8_t RuleCount = 21;
+uint8_t RuleCount = 20;
 
