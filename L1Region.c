@@ -1,6 +1,10 @@
 #include "L1Region.h"
 #include <iso646.h>
 
+#ifndef L1RegionAllocationAlignment
+#define L1RegionAllocationAlignment 16
+#endif
+
 struct L1Region
 {
 	void* bytes;
@@ -21,8 +25,10 @@ void* L1RegionAllocate(L1Region* self, size_t byteCount)
 		self->usedByteCount = 0;
 		self->bytes = calloc(1, self->allocatedByteCount);
 	}
-	if (self->usedByteCount + byteCount <= self->allocatedByteCount)
+	size_t alignmentDifference = self->usedByteCount % L1RegionAllocationAlignment;
+	if (self->usedByteCount + byteCount + alignmentDifference <= self->allocatedByteCount)
 	{
+		self->usedByteCount += alignmentDifference;
 		void* bytes = self->usedByteCount + self->bytes;
 		self->usedByteCount += byteCount;
 		return bytes;
