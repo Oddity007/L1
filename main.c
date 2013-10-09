@@ -6,6 +6,7 @@
 #include "L1Region.h"
 #include <string.h>
 #include <assert.h>
+#include "L1FIRGenerator.h"
 
 static void PrintASTNode(const L1ParserASTNode* node, int indentLevel)
 {
@@ -103,7 +104,8 @@ static void PrintASTNode(const L1ParserASTNode* node, int indentLevel)
 
 int main(void)
 {
-	L1Lexer* lexer = L1LexerNew((const uint8_t*)"f a = (a 1 2 ? 1; 0); //asdfawef \n [c, d] = z \"a\"; [e, g] = [4, 5]; f /*asdfasdf*/");
+	//L1Lexer* lexer = L1LexerNew((const uint8_t*)"f a = (a 1 2 ? 1; 0); //asdfawef \n [c, d] = z \"a\"; [e, g] = [4, 5]; f /*asdfasdf*/");
+	L1Lexer* lexer = L1LexerNew((const uint8_t*)"f a = (a 1 2 ? 1; 0); f");
 	L1Array tokenArray;
 	L1ArrayInitialize(& tokenArray);
 	L1Region* tokenDataRegion = L1RegionNew();
@@ -184,7 +186,69 @@ int main(void)
 	
 	L1Parser* parser = L1ParserNew(L1ArrayGetElements(& tokenArray), L1ArrayGetElementCount(& tokenArray));
 	const L1ParserASTNode* rootASTNode = L1ParserGetRootASTNode(parser);
+	
 	PrintASTNode(rootASTNode, 1);
+	
+	puts("Generating FIR:");
+	L1FIRGenerator* generator = L1FIRGeneratorNew(rootASTNode);
+	{
+		uint64_t nodeCount = 0;
+		const L1FIRNode* nodes = L1FIRGeneratorGetNodes(generator, & nodeCount);
+		for (uint64_t i = 0; i < nodeCount; i++)
+		{
+			switch (nodes[i].type)
+			{
+				case L1FIRNodeTypeNoOperation:
+					puts("no_operation");
+					break;
+				case L1FIRNodeTypeLoadUndefined:
+					printf("load_undefined %lu\n", (unsigned long)nodes[i].data.loadUndefined.destination);
+					break;
+				case L1FIRNodeTypeLoadInteger:
+					printf("load_integer %lu \"", (unsigned long)nodes[i].data.loadInteger.destination);
+					fwrite(nodes[i].data.loadInteger.digits, nodes[i].data.loadInteger.digitCount, 1, stdout);
+					fputc('"', stdout);
+					fputc('\n', stdout);
+					break;
+				case L1FIRNodeTypeLoadString:
+					printf("load_string %lu [...]\n", (unsigned long)nodes[i].data.loadString.destination);
+					break;
+				case L1FIRNodeTypeClosure:
+					printf("closure %lu [ ", (unsigned long)nodes[i].data.closure.destination);
+					for (uint64_t j = 0; j < nodes[i].data.closure.argumentCount; j++)
+					{
+						printf("%lu ", (unsigned long)nodes[i].data.closure.arguments[j]);
+					}
+					printf("] %lu\n", (unsigned long)nodes[i].data.closure.result);
+					break;
+				case L1FIRNodeTypeCall:
+					printf("call %lu %lu [ ", (unsigned long)nodes[i].data.call.destination, (unsigned long)nodes[i].data.call.closure);
+					for (uint64_t j = 0; j < nodes[i].data.call.argumentCount; j++)
+					{
+						printf("%lu ", (unsigned long)nodes[i].data.call.arguments[j]);
+					}
+					printf("]\n");
+					break;
+				case L1FIRNodeTypeLet:
+					printf("let %lu %lu\n", (unsigned long)nodes[i].data.let.destination, (unsigned long)nodes[i].data.let.source);
+					break;
+				case L1FIRNodeTypeSplitList:
+					puts("split_list");
+					break;
+				case L1FIRNodeTypeNewList:
+					puts("new_list");
+					break;
+				case L1FIRNodeTypeConsList:
+					puts("cons_list");
+					break;
+				case L1FIRNodeTypeBranch:
+					printf("branch %lu %lu %lu %lu\n", (unsigned long)nodes[i].data.branch.destination, (unsigned long)nodes[i].data.branch.condition, (unsigned long)nodes[i].data.branch.resultIfTrue, (unsigned long)nodes[i].data.branch.resultIfFalse);
+					break;
+			}
+		}
+	}
+	L1FIRGeneratorDelete(generator);
+	
 	L1ParserDelete(parser);
 	
 	L1ArrayDeinitialize(& tokenArray);

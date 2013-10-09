@@ -19,6 +19,7 @@ L1Region* L1RegionNew(void)
 
 void* L1RegionAllocate(L1Region* self, size_t byteCount)
 {
+	//return calloc(1, byteCount);
 	if (not self->bytes)
 	{
 		self->allocatedByteCount = byteCount * 2;
