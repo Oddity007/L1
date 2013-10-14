@@ -6,7 +6,8 @@
 #include "L1Region.h"
 #include <string.h>
 #include <assert.h>
-#include "L1FIRGenerator.h"
+//#include "L1FIRGenerator.h"
+#include "L1GenerateIR.h"
 
 static void PrintASTNode(const L1ParserASTNode* node, int indentLevel)
 {
@@ -189,7 +190,12 @@ int main(void)
 	
 	PrintASTNode(rootASTNode, 1);
 	
-	puts("Generating FIR:");
+	puts("Generating IR:");
+	L1IRBuffer* buffer = L1IRBufferNew();
+	L1GenerateIR(rootASTNode, buffer, NULL);
+	L1IRBufferDelete(buffer);
+	
+	/*puts("Generating FIR:");
 	L1FIRGenerator* generator = L1FIRGeneratorNew(rootASTNode);
 	{
 		uint64_t nodeCount = 0;
@@ -247,7 +253,7 @@ int main(void)
 			}
 		}
 	}
-	L1FIRGeneratorDelete(generator);
+	L1FIRGeneratorDelete(generator);*/
 	
 	L1ParserDelete(parser);
 	
