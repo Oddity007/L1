@@ -152,88 +152,152 @@ void L1IRBufferCreateBranchStatement(L1IRBuffer* self, uint64_t destination, uin
 	L1IRBufferAppendBytes(self, & resultIfFalse, sizeof(uint64_t));
 }
 
-/*uint64_t L1IRBufferCreateLoadUndefinedStatement(L1IRBuffer* self)
-{
-	uint8_t byte = L1IRBufferStatementTypeLoadUndefined;
-	L1IRBufferAppendBytes(self, & byte, 1);
-}
+#include <stdio.h>
+#include <inttypes.h>
 
-uint64_t L1IRBufferCreateLoadIntegerStatement(L1IRBuffer* self, const uint8_t* integerBytes, uint64_t integerByteCount)
+void L1IRBufferPrint(L1IRBuffer* self)
 {
-	uint8_t* bytes = malloc(1 + sizeof(uint64_t) + integerByteCount);
-	bytes[0] = L1IRBufferStatementTypeLoadInteger;
-	memcpy(bytes + 1, & integerByteCount, sizeof(uint64_t));
-	memcpy(bytes + 1 + sizeof(uint64_t), integerBytes, integerByteCount);
-	uint64_t statementID = L1IRBufferCreateStatement(self, bytes, 1 + sizeof(uint64_t) + integerByteCount);
-	free(bytes);
-	return statementID;
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	size_t byteCount = L1ArrayGetElementCount(& self->byteArray);
+	for (uint64_t i = 0; i < byteCount;)
+	{
+		switch (bytes[i])
+		{
+			case L1IRBufferStatementTypeNoOperation:
+				puts("no_operation");
+				i++;
+				break;
+			case L1IRBufferStatementTypeLoadUndefined:
+				{
+					uint64_t destination;
+					i++;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					printf("load_undefined %" PRIu64 "\n", destination);
+				}
+				break;
+			case L1IRBufferStatementTypeLoadInteger:
+				{
+					uint64_t destination;
+					i++;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					uint64_t integerByteCount;
+					memcpy(& integerByteCount, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					printf("load_integer %" PRIu64 " %" PRIu64 " [ ", destination, integerByteCount);
+					for (uint64_t j = 0; j < integerByteCount; j++)
+					{
+						printf("%" PRIu8 " ", bytes[i]);
+						i++;
+					}
+					puts("]");
+				}
+				break;
+			case L1IRBufferStatementTypeExport:
+				{
+					uint64_t source;
+					i++;
+					memcpy(& source, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					printf("export %" PRIu64 "\n", source);
+				}
+				break;
+			case L1IRBufferStatementTypeClosure:
+				{
+					i++;
+					uint64_t destination, result, argumentCount;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& result, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& argumentCount, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					printf("closure %" PRIu64 " %" PRIu64 " %" PRIu64 " [ ", destination, result, argumentCount);
+					for (uint64_t j = 0; j < argumentCount; j++)
+					{
+						uint64_t argument;
+						memcpy(& argument, bytes + i, sizeof(uint64_t));
+						printf("%" PRIu64 " ", argument);
+						i += sizeof(uint64_t);
+					}
+					puts("]");
+				}
+				break;
+			case L1IRBufferStatementTypeCall:
+				{
+					i++;
+					uint64_t destination, callee, argumentCount;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& callee, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& argumentCount, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					printf("call %" PRIu64 " %" PRIu64 " %" PRIu64 " [ ", destination, callee, argumentCount);
+					for (uint64_t j = 0; j < argumentCount; j++)
+					{
+						uint64_t argument;
+						memcpy(& argument, bytes + i, sizeof(uint64_t));
+						printf("%" PRIu64 " ", argument);
+						i += sizeof(uint64_t);
+					}
+					puts("]");
+				}
+				break;
+			case L1IRBufferStatementTypeSplitList:
+				{
+					i++;
+					uint64_t headDestination, tailDestination, source;
+					memcpy(& headDestination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& tailDestination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& source, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					printf("split_list %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", headDestination, tailDestination, source);
+				}
+				break;
+			case L1IRBufferStatementTypeLoadEmptyList:
+				{
+					uint64_t destination;
+					i++;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					printf("load_empty_list %" PRIu64 "\n", destination);
+				}
+				break;
+			case L1IRBufferStatementTypeConsList:
+				{
+					i++;
+					uint64_t destination, head, tail;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& head, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& tail, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					printf("cons_list %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", destination, head, tail);
+				}
+				break;
+			case L1IRBufferStatementTypeBranch:
+				{
+					i++;
+					uint64_t destination, condition, resultIfTrue, resultIfFalse;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& condition, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& resultIfTrue, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& resultIfFalse, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					printf("branch %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", destination, condition, resultIfTrue, resultIfFalse);
+				}
+				break;
+			default:
+				puts("unknown_data");
+				return;
+		}
+	}
 }
-
-uint64_t L1IRBufferCreateExportStatement(L1IRBuffer* self, uint64_t exportedStatementID)
-{
-	uint8_t bytes[1 + sizeof(uint64_t)];
-	bytes[0] = L1IRBufferStatementTypeExport;
-	memcpy(bytes + 1, & exportedStatementID, sizeof(uint64_t));
-	return L1IRBufferCreateStatement(self, bytes, 1 + sizeof(uint64_t));
-}
-
-uint64_t L1IRBufferCreateClosureStatement(L1IRBuffer* self, uint64_t result, const uint64_t* arguments, uint64_t argumentCount)
-{
-	uint8_t* bytes = malloc(1 + 2 * sizeof(uint64_t) + sizeof(uint64_t) * argumentCount);
-	bytes[0] = L1IRBufferStatementTypeClosure;
-	memcpy(bytes + 1, & result, sizeof(uint64_t));
-	memcpy(bytes + 1 + sizeof(uint64_t), & argumentCount, sizeof(uint64_t));
-	memcpy(bytes + 1 + 2 * sizeof(uint64_t), arguments, sizeof(uint64_t) * argumentCount);
-	uint64_t statementID = L1IRBufferCreateStatement(self, bytes, 1 + 2 * sizeof(uint64_t) + sizeof(uint64_t) * argumentCount);
-	free(bytes);
-	return statementID;
-}
-
-uint64_t L1IRBufferCreateCallStatement(L1IRBuffer* self, uint64_t callee, const uint64_t* arguments, uint64_t argumentCount)
-{
-	uint8_t* bytes = malloc(1 + 2 * sizeof(uint64_t) + sizeof(uint64_t) * argumentCount);
-	bytes[0] = L1IRBufferStatementTypeCall;
-	memcpy(bytes + 1, & callee, sizeof(uint64_t));
-	memcpy(bytes + 1 + sizeof(uint64_t), & argumentCount, sizeof(uint64_t));
-	memcpy(bytes + 1 + 2 * sizeof(uint64_t), arguments, sizeof(uint64_t) * argumentCount);
-	uint64_t statementID = L1IRBufferCreateStatement(self, bytes, 1 + 2 * sizeof(uint64_t) + sizeof(uint64_t) * argumentCount);
-	free(bytes);
-	return statementID;
-}
-
-uint64_t L1IRBufferCreateGetListHeadStatement(L1IRBuffer* self, uint64_t list)
-{
-	uint8_t* bytes = malloc(1 + sizeof(uint64_t));
-	bytes[0] = L1IRBufferStatementTypeGetListHead;
-	memcpy(bytes + 1, & list, sizeof(uint64_t));
-	uint64_t statementID = L1IRBufferCreateStatement(self, bytes, 1 + sizeof(uint64_t));
-	free(bytes);
-	return statementID;
-}
-
-uint64_t L1IRBufferCreateGetListTailStatement(L1IRBuffer* self, uint64_t list)
-{
-	uint8_t* bytes = malloc(1 + sizeof(uint64_t));
-	bytes[0] = L1IRBufferStatementTypeGetListTail;
-	memcpy(bytes + 1, & list, sizeof(uint64_t));
-	uint64_t statementID = L1IRBufferCreateStatement(self, bytes, 1 + sizeof(uint64_t));
-	free(bytes);
-	return statementID;
-}
-
-uint64_t L1IRBufferCreateLoadEmptyListStatement(L1IRBuffer* self)
-{
-	uint8_t byte = L1IRBufferStatementTypeLoadEmptyList;
-	return L1IRBufferCreateStatement(self, & byte, 1);
-}
-
-uint64_t L1IRBufferCreateConsListStatement(L1IRBuffer* self, uint64_t head, uint64_t tail)
-{
-	uint8_t* bytes = malloc(1 + 2 * sizeof(uint64_t));
-	bytes[0] = L1IRBufferStatementTypeConsList;
-	memcpy(bytes + 1, & head, sizeof(uint64_t));
-	memcpy(bytes + 1 + sizeof(uint64_t), & tail, sizeof(uint64_t));
-	uint64_t statementID = L1IRBufferCreateStatement(self, bytes, 1 + 2 * sizeof(uint64_t));
-	free(bytes);
-	return statementID;
-}*/

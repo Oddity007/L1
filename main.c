@@ -193,6 +193,7 @@ int main(void)
 	puts("Generating IR:");
 	L1IRBuffer* buffer = L1IRBufferNew();
 	L1GenerateIR(rootASTNode, buffer, NULL);
+	L1IRBufferPrint(buffer);
 	L1IRBufferDelete(buffer);
 	
 	/*puts("Generating FIR:");

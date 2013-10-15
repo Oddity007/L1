@@ -51,6 +51,8 @@ void L1IRBufferCreateLoadEmptyListStatement(L1IRBuffer* self, uint64_t destinati
 void L1IRBufferCreateConsListStatement(L1IRBuffer* self, uint64_t destination, uint64_t head, uint64_t tail);
 void L1IRBufferCreateBranchStatement(L1IRBuffer* self, uint64_t destination, uint64_t condition, uint64_t resultIfTrue, uint64_t resultIfFalse);
 
+void L1IRBufferPrint(L1IRBuffer* self);
+
 #ifdef __cplusplus
 }
 //extern "C"
