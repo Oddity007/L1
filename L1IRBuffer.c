@@ -2,6 +2,7 @@
 #include <iso646.h>
 #include <string.h>
 #include "L1IRBuffer.h"
+#include <assert.h>
 
 struct L1IRBuffer
 {
@@ -78,78 +79,344 @@ static void L1IRBufferAppendBytes(L1IRBuffer* self, const void* bytes, size_t by
 	}
 }
 
-void L1IRBufferCreateNoOperationStatement(L1IRBuffer* self)
+size_t L1IRBufferCreateNoOperationStatement(L1IRBuffer* self)
 {
+	size_t statementIndex = L1ArrayGetElementCount(& self->byteArray);
 	L1IRBufferAppendBytes(self, (const uint8_t[1]){L1IRBufferStatementTypeNoOperation}, 1);
+	return statementIndex;
 }
 
-void L1IRBufferCreateLoadUndefinedStatement(L1IRBuffer* self, uint64_t destination)
+size_t L1IRBufferCreateLoadUndefinedStatement(L1IRBuffer* self, uint64_t destination)
 {
+	size_t statementIndex = L1ArrayGetElementCount(& self->byteArray);
 	L1IRBufferAppendBytes(self, (const uint8_t[1]){L1IRBufferStatementTypeLoadUndefined}, 1);
 	L1IRBufferAppendBytes(self, & destination, sizeof(uint64_t));
+	return statementIndex;
 }
 
-void L1IRBufferCreateLoadIntegerStatement(L1IRBuffer* self, uint64_t destination, const uint8_t* integerBytes, uint64_t integerByteCount)
+size_t L1IRBufferCreateLoadIntegerStatement(L1IRBuffer* self, uint64_t destination, const uint8_t* integerBytes, uint64_t integerByteCount)
 {
+	size_t statementIndex = L1ArrayGetElementCount(& self->byteArray);
 	L1IRBufferAppendBytes(self, (const uint8_t[1]){L1IRBufferStatementTypeLoadInteger}, 1);
 	L1IRBufferAppendBytes(self, & destination, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & integerByteCount, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, integerBytes, integerByteCount);
+	return statementIndex;
 }
 
-void L1IRBufferCreateExportStatement(L1IRBuffer* self, uint64_t source)
+size_t L1IRBufferCreateExportStatement(L1IRBuffer* self, uint64_t source)
 {
+	size_t statementIndex = L1ArrayGetElementCount(& self->byteArray);
 	L1IRBufferAppendBytes(self, (const uint8_t[1]){L1IRBufferStatementTypeExport}, 1);
 	L1IRBufferAppendBytes(self, & source, sizeof(uint64_t));
+	return statementIndex;
 }
 
-void L1IRBufferCreateClosureStatement(L1IRBuffer* self, uint64_t destination, uint64_t result, const uint64_t* arguments, uint64_t argumentCount)
+size_t L1IRBufferCreateClosureStatement(L1IRBuffer* self, uint64_t destination, uint64_t result, const uint64_t* arguments, uint64_t argumentCount)
 {
+	size_t statementIndex = L1ArrayGetElementCount(& self->byteArray);
 	L1IRBufferAppendBytes(self, (const uint8_t[1]){L1IRBufferStatementTypeClosure}, 1);
 	L1IRBufferAppendBytes(self, & destination, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & result, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & argumentCount, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, arguments, argumentCount * sizeof(uint64_t));
+	return statementIndex;
 }
 
-void L1IRBufferCreateCallStatement(L1IRBuffer* self, uint64_t destination, uint64_t callee, const uint64_t* arguments, uint64_t argumentCount)
+size_t L1IRBufferCreateCallStatement(L1IRBuffer* self, uint64_t destination, uint64_t callee, const uint64_t* arguments, uint64_t argumentCount)
 {
+	size_t statementIndex = L1ArrayGetElementCount(& self->byteArray);
 	L1IRBufferAppendBytes(self, (const uint8_t[1]){L1IRBufferStatementTypeCall}, 1);
 	L1IRBufferAppendBytes(self, & destination, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & callee, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & argumentCount, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, arguments, argumentCount * sizeof(uint64_t));
+	return statementIndex;
 }
 
-void L1IRBufferCreateSplitListStatement(L1IRBuffer* self, uint64_t headDestination, uint64_t tailDestination, uint64_t source)
+size_t L1IRBufferCreateSplitListStatement(L1IRBuffer* self, uint64_t headDestination, uint64_t tailDestination, uint64_t source)
 {
+	size_t statementIndex = L1ArrayGetElementCount(& self->byteArray);
 	L1IRBufferAppendBytes(self, (const uint8_t[1]){L1IRBufferStatementTypeSplitList}, 1);
 	L1IRBufferAppendBytes(self, & headDestination, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & tailDestination, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & source, sizeof(uint64_t));
+	return statementIndex;
 }
 
-void L1IRBufferCreateLoadEmptyListStatement(L1IRBuffer* self, uint64_t destination)
+size_t L1IRBufferCreateLoadEmptyListStatement(L1IRBuffer* self, uint64_t destination)
 {
+	size_t statementIndex = L1ArrayGetElementCount(& self->byteArray);
 	L1IRBufferAppendBytes(self, (const uint8_t[1]){L1IRBufferStatementTypeLoadEmptyList}, 1);
 	L1IRBufferAppendBytes(self, & destination, sizeof(uint64_t));
+	return statementIndex;
 }
 
-void L1IRBufferCreateConsListStatement(L1IRBuffer* self, uint64_t destination, uint64_t head, uint64_t tail)
+size_t L1IRBufferCreateConsListStatement(L1IRBuffer* self, uint64_t destination, uint64_t head, uint64_t tail)
 {
+	size_t statementIndex = L1ArrayGetElementCount(& self->byteArray);
 	L1IRBufferAppendBytes(self, (const uint8_t[1]){L1IRBufferStatementTypeConsList}, 1);
 	L1IRBufferAppendBytes(self, & destination, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & head, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & tail, sizeof(uint64_t));
+	return statementIndex;
 }
 
-void L1IRBufferCreateBranchStatement(L1IRBuffer* self, uint64_t destination, uint64_t condition, uint64_t resultIfTrue, uint64_t resultIfFalse)
+size_t L1IRBufferCreateBranchStatement(L1IRBuffer* self, uint64_t destination, uint64_t condition, uint64_t resultIfTrue, uint64_t resultIfFalse)
 {
+	size_t statementIndex = L1ArrayGetElementCount(& self->byteArray);
 	L1IRBufferAppendBytes(self, (const uint8_t[1]){L1IRBufferStatementTypeBranch}, 1);
 	L1IRBufferAppendBytes(self, & destination, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & condition, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & resultIfTrue, sizeof(uint64_t));
 	L1IRBufferAppendBytes(self, & resultIfFalse, sizeof(uint64_t));
+	return statementIndex;
+}
+
+L1IRBufferStatementType L1IRBufferGetStatementType(L1IRBuffer* self, size_t statementIndex)
+{
+	return (L1IRBufferStatementType) *(statementIndex + (const uint8_t*)L1ArrayGetElements(& self->byteArray));
+}
+
+void L1IRBufferGetLoadUndefinedStatement(L1IRBuffer* self, size_t statementIndex, uint64_t* destination)
+{
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	assert(bytes[0] == L1IRBufferStatementTypeLoadUndefined);
+	bytes++;
+	memcpy(& destination, bytes, sizeof(uint64_t));
+}
+
+void L1IRBufferGetLoadIntegerStatement(L1IRBuffer* self, size_t statementIndex, uint64_t* destination, uint8_t* integerBytes, uint64_t* integerByteCount)
+{
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	assert(bytes[0] == L1IRBufferStatementTypeLoadInteger);
+	bytes++;
+	memcpy(destination, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(integerByteCount, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(integerBytes, bytes, *integerByteCount);
+}
+
+void L1IRBufferGetExportStatement(L1IRBuffer* self, size_t statementIndex, uint64_t* source)
+{
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	assert(bytes[0] == L1IRBufferStatementTypeExport);
+	bytes++;
+	memcpy(source, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+}
+
+void L1IRBufferGetClosureStatement(L1IRBuffer* self, size_t statementIndex, uint64_t* destination, uint64_t* result, uint64_t* arguments, uint64_t* argumentCount)
+{
+	
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	assert(bytes[0] == L1IRBufferStatementTypeClosure);
+	bytes++;
+	memcpy(destination, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(result, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(argumentCount, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(arguments, bytes, *argumentCount);
+}
+
+void L1IRBufferGetCallStatement(L1IRBuffer* self, size_t statementIndex, uint64_t* destination, uint64_t* callee, uint64_t* arguments, uint64_t* argumentCount)
+{
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	assert(bytes[0] == L1IRBufferStatementTypeCall);
+	bytes++;
+	memcpy(destination, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(callee, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(argumentCount, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(arguments, bytes, *argumentCount);
+}
+
+void L1IRBufferGetSplitListStatement(L1IRBuffer* self, size_t statementIndex, uint64_t* headDestination, uint64_t* tailDestination, uint64_t* source)
+{
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	assert(bytes[0] == L1IRBufferStatementTypeSplitList);
+	bytes++;
+	memcpy(headDestination, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(tailDestination, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(source, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+}
+
+void L1IRBufferGetLoadEmptyListStatement(L1IRBuffer* self, size_t statementIndex, uint64_t* destination)
+{
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	assert(bytes[0] == L1IRBufferStatementTypeLoadEmptyList);
+	bytes++;
+	memcpy(destination, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+}
+
+void L1IRBufferGetConsListStatement(L1IRBuffer* self, size_t statementIndex, uint64_t* destination, uint64_t* head, uint64_t* tail)
+{
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	assert(bytes[0] == L1IRBufferStatementTypeConsList);
+	bytes++;
+	memcpy(destination, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(head, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(tail, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+}
+
+void L1IRBufferGetBranchStatement(L1IRBuffer* self, size_t statementIndex, uint64_t* destination, uint64_t* condition, uint64_t* resultIfTrue, uint64_t* resultIfFalse)
+{
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	assert(bytes[0] == L1IRBufferStatementTypeBranch);
+	bytes++;
+	memcpy(destination, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(condition, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(resultIfTrue, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+	memcpy(resultIfFalse, bytes, sizeof(uint64_t));
+	bytes += sizeof(uint64_t);
+}
+
+size_t L1IRBufferGetNextStatement(L1IRBuffer* self, size_t last)
+{
+	const uint8_t* bytes = L1ArrayGetElements(& self->byteArray);
+	size_t byteCount = L1ArrayGetElementCount(& self->byteArray);
+	size_t i = last;
+	for (; i < byteCount;)
+	{
+		switch (bytes[i])
+		{
+			case L1IRBufferStatementTypeNoOperation:
+				i++;
+				break;
+			case L1IRBufferStatementTypeLoadUndefined:
+				{
+					uint64_t destination;
+					i++;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+				}
+				break;
+			case L1IRBufferStatementTypeLoadInteger:
+				{
+					uint64_t destination;
+					i++;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					uint64_t integerByteCount;
+					memcpy(& integerByteCount, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					for (uint64_t j = 0; j < integerByteCount; j++)
+					{
+						i++;
+					}
+				}
+				break;
+			case L1IRBufferStatementTypeExport:
+				{
+					uint64_t source;
+					i++;
+					memcpy(& source, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+				}
+				break;
+			case L1IRBufferStatementTypeClosure:
+				{
+					i++;
+					uint64_t destination, result, argumentCount;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& result, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& argumentCount, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					for (uint64_t j = 0; j < argumentCount; j++)
+					{
+						uint64_t argument;
+						memcpy(& argument, bytes + i, sizeof(uint64_t));
+						i += sizeof(uint64_t);
+					}
+				}
+				break;
+			case L1IRBufferStatementTypeCall:
+				{
+					i++;
+					uint64_t destination, callee, argumentCount;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& callee, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& argumentCount, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					for (uint64_t j = 0; j < argumentCount; j++)
+					{
+						uint64_t argument;
+						memcpy(& argument, bytes + i, sizeof(uint64_t));
+						i += sizeof(uint64_t);
+					}
+				}
+				break;
+			case L1IRBufferStatementTypeSplitList:
+				{
+					i++;
+					uint64_t headDestination, tailDestination, source;
+					memcpy(& headDestination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& tailDestination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& source, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+				}
+				break;
+			case L1IRBufferStatementTypeLoadEmptyList:
+				{
+					uint64_t destination;
+					i++;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+				}
+				break;
+			case L1IRBufferStatementTypeConsList:
+				{
+					i++;
+					uint64_t destination, head, tail;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& head, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& tail, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+				}
+				break;
+			case L1IRBufferStatementTypeBranch:
+				{
+					i++;
+					uint64_t destination, condition, resultIfTrue, resultIfFalse;
+					memcpy(& destination, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& condition, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& resultIfTrue, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+					memcpy(& resultIfFalse, bytes + i, sizeof(uint64_t));
+					i += sizeof(uint64_t);
+				}
+				break;
+			default:
+				abort();
+				break;
+		}
+	}
+	return i;
 }
 
 #include <stdio.h>
