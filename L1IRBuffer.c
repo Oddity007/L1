@@ -568,3 +568,9 @@ void L1IRBufferPrint(L1IRBuffer* self)
 		}
 	}
 }
+
+const uint8_t* L1IRBufferGetBytes(L1IRBuffer* self, size_t* byteCount)
+{
+	if (byteCount) *byteCount = L1ArrayGetElementCount(& self->byteArray);
+	return L1ArrayGetElements(& self->byteArray);
+}

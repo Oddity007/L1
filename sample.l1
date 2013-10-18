@@ -1,0 +1,9 @@
+factorial n =
+(
+	__boolean_not (__is_integer n) ? __undefined;
+	__integer_less_than n 0 ? __undefined;
+	__integer_less_than n 2 ? 1;
+	__integer_multiply n (__self (__integer_subtract n 1))
+);
+
+factorial

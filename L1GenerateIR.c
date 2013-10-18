@@ -220,6 +220,7 @@ static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding,
 
 uint64_t L1GenerateIR(const L1ParserASTNode* node, L1IRBuffer* buffer, uint64_t* nextID)
 {
+	assert(node);
 	uint64_t nextID_fallback = 0;
 	if (not nextID) nextID = & nextID_fallback;
 	uint64_t source = Generate(node, NULL, buffer, nextID);

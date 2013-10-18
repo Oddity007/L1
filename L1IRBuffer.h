@@ -68,6 +68,8 @@ size_t L1IRBufferGetNextStatement(L1IRBuffer* self, size_t last);
 
 void L1IRBufferPrint(L1IRBuffer* self);
 
+const uint8_t* L1IRBufferGetBytes(L1IRBuffer* self, size_t* byteCount);
+
 #ifdef __cplusplus
 }
 //extern "C"
