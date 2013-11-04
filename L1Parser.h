@@ -77,6 +77,15 @@ struct L1ParserASTNode
 	}data;
 };
 
+enum L1ParserErrorType
+{
+	L1ParserErrorTypeNone,
+	L1ParserErrorTypeUnknown,
+	L1ParserErrorTypeUnexpectedToken,
+};
+
+typedef enum L1ParserErrorType L1ParserErrorType;
+
 typedef struct L1ParserLexedToken L1ParserLexedToken;
 struct L1ParserLexedToken
 {
@@ -86,6 +95,7 @@ struct L1ParserLexedToken
 };
 
 L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount);
+L1ParserErrorType L1ParserGetError(L1Parser* self);
 const L1ParserASTNode* L1ParserGetRootASTNode(L1Parser* self);
 void L1ParserDelete(L1Parser* self);
 

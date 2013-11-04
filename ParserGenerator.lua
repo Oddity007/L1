@@ -42,7 +42,11 @@ local Rules = {
 	{type = "branch", "chainedexpression", "QuestionMark", "chainedexpression", "Terminal", "openexpression", action = "return CreateBranchNode(parser, arguments[0], arguments[2], arguments[4]);"},
 	
 	{type = "assignment", "assignment_target", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], NULL, arguments[2], arguments[4]);"},
-	{type = "assignment", "assignment_target", "assignment_target_list_body", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], arguments[1], arguments[3], arguments[5]);"},
+	{type = "assignment", "assignment_target", "assignment_arguments", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], arguments[1], arguments[3], arguments[5]);"},
+	
+	{type = "assignment_arguments", "assignment_target", "assignment_arguments", action = "return Cons(parser, arguments[0], arguments[1]);"},
+	{type = "assignment_arguments", "assignment_target", action = "return Cons(parser, arguments[0], NULL);"},
+	{type = "assignment_arguments", action = "return NULL;"},
 	
 	{type = "assignment_target", "Identifier", action = "return arguments[0];"},
 	{type = "assignment_target", "OpeningSquareBracket", "assignment_target_list_body", "ClosingSquareBracket", action = "return CreateListNode(parser, arguments[1]);"},
@@ -68,6 +72,15 @@ local Rules = {
 	{type = "list_body", action = "return NULL;"},
 }
 
+--[[local Rules = {
+	--{type = "program", "chainedexpression", "Done", action = "return arguments[0];"},
+	{type = "program", "closedexpression", "Done", action = "return arguments[0];"},
+	
+	{type = "closedexpression", "Identifier", action = "return arguments[0];"},
+	{type = "closedexpression", "Natural", action = "return arguments[0];"},
+	{type = "closedexpression", "String", action = "return arguments[0];"},
+}]]
+
 do
 	local identifiers = {}
 	local identifierID = 0
@@ -91,11 +104,15 @@ do
 		output[#output + 1] = "static const uint8_t rule_string_"
 		output[#output + 1] = tostring(i)
 		output[#output + 1] = "["
-		output[#output + 1] = tostring(#rule)
+		output[#output + 1] = tostring((#rule > 0) and #rule or 1)
 		output[#output + 1] = "] = {"
-		for _, symbol in ipairs(rule) do
-			output[#output + 1] = tostring(identifiers[symbol])
-			output[#output + 1] = ", "
+		if #rule > 0 then
+			for _, symbol in ipairs(rule) do
+				output[#output + 1] = tostring(identifiers[symbol])
+				output[#output + 1] = ", "
+			end
+		else
+			output[#output + 1] = "0"
 		end
 		output[#output + 1] = "};\n"
 	end

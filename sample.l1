@@ -1,9 +1,16 @@
-factorial n =
-(
-	__boolean_not (__is_integer n) ? __undefined;
-	__integer_less_than n 0 ? __undefined;
-	__integer_less_than n 2 ? 1;
-	__integer_multiply n (__self (__integer_subtract n 1))
-);
-
-factorial
+boolean_true = __boolean_from_integer 1;
+boolean_false = __boolean_from_integer 0;
+//boolean_true = 1;
+//boolean_false = 0;
+boolean_and a b = (a ? b; a);
+boolean_or a b = (a ? a; b);
+boolean_not a = (a ? boolean_false; boolean_true);
+//boolean_not
+integer_lt a b = __integer_less_than a b;
+integer_gt a b = integer_lt b a;
+integer_geq a b = boolean_not (integer_lt a b);
+integer_leq a b = boolean_not (integer_gt a b);
+integer_neq a b = boolean_or (integer_gt a b) (integer_lt a b);
+integer_eq a b = boolean_not (integer_neq a b);
+//integer_eq 1 1
+[integer_lt, integer_gt]

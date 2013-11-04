@@ -6,14 +6,25 @@
 #include "L1Lexer.h"
 #include <stdbool.h>
 #include <string.h>
+#include <setjmp.h>
+#include <assert.h>
 
 struct L1Parser
 {
 	const L1ParserASTNode* rootASTNode;
 	L1Region* region;
+	L1ParserErrorType lastError;
+	jmp_buf env;
 };
 
-//#include <stdio.h>
+static void ThrowError(L1Parser* self, L1ParserErrorType type)
+{
+	self->lastError = type;
+	longjmp(self->env, 1);
+	assert(false);
+}
+
+#include <stdio.h>
 
 static void* CloneBytes(L1Parser* parser, const void* bytes, size_t byteCount)
 {
@@ -43,8 +54,13 @@ static L1ParserASTNode* ParserASTNodeFromToken(L1Parser* self, const L1ParserLex
 			node->data.identifier.bytes = CloneBytes(self, token->bytes, token->byteCount);
 			node->data.identifier.byteCount = token->byteCount;
 			break;
+	/*	case L1LexerTokenTypeDone:
+			break;*/
 		default:
-			node = NULL;
+			/*printf("%s: %i\n", __func__, (int) token->type);
+			assert(false);
+			ThrowError(self, L1ParserErrorTypeUnexpectedToken);
+			assert(false);*/
 			break;
 	}
 	return node;
@@ -85,6 +101,7 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 				if(tokens[currentTokenIndex].type == symbol)
 				{
 					matchedSymbolData[j] = ParserASTNodeFromToken(self, tokens + currentTokenIndex);
+					//assert(matchedSymbolData[j]);
 					currentTokenIndex++;
 				}
 				else
@@ -122,6 +139,7 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 			}
 		}
 	}
+	//ThrowError(self, L1ParserErrorTypeUnknown);
 	return 0;
 }
 
@@ -178,12 +196,30 @@ L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
 	L1Parser* self = calloc(1, sizeof(L1Parser));
 	self->region = L1RegionNew();
 	const void* rootASTNode = NULL;
-	if(not Parse(self, tokens, tokenCount, & rootASTNode, ProgramSymbol, Rules, RuleCount))
+	self->lastError = L1ParserErrorTypeNone;
+	uint64_t tokensRead = 0;
+	if(not setjmp(self->env))
 	{
-		rootASTNode = NULL;
+		assert(self->lastError == L1ParserErrorTypeNone);
+		tokensRead = Parse(self, tokens, tokenCount, & rootASTNode, ProgramSymbol, Rules, RuleCount);
+		assert(self->lastError == L1ParserErrorTypeNone);
+		assert(tokensRead > 0);
+		assert(rootASTNode);
 	}
+	else
+	{
+		assert(self->lastError != L1ParserErrorTypeNone);
+		assert(rootASTNode == NULL);
+		//Error
+	}
+	
 	self->rootASTNode = rootASTNode;
 	return self;
+}
+
+L1ParserErrorType L1ParserGetError(L1Parser* self)
+{
+	return self->lastError;
 }
 
 const L1ParserASTNode* L1ParserGetRootASTNode(L1Parser* self)

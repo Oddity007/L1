@@ -30,7 +30,7 @@ void* L1RegionAllocate(L1Region* self, size_t byteCount)
 	if (self->usedByteCount + byteCount + alignmentDifference <= self->allocatedByteCount)
 	{
 		self->usedByteCount += alignmentDifference;
-		void* bytes = self->usedByteCount + self->bytes;
+		void* bytes = self->usedByteCount + (char*) self->bytes;
 		self->usedByteCount += byteCount;
 		return bytes;
 	}
