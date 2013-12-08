@@ -7,6 +7,8 @@
 #include <string.h>
 #include <assert.h>
 #include "L1GenerateIR.h"
+#include "L1LuaTableOutputFunctions.h"
+#include "L1JSONTableOutputFunctions.h"
 
 static void PrintASTNode(const L1ParserASTNode* node, int indentLevel)
 {
@@ -166,26 +168,27 @@ static void CompileFile(const char* inputPath, const char* outputPath)
 				
 				PrintASTNode(rootASTNode, 0);
 				
-				L1ByteBuffer* buffer = L1ByteBufferNew();
-				
-				L1GenerateIR(rootASTNode, buffer, NULL);
+				/*{
+					FILE* outputFile = fopen(outputPath, "wb");
+					assert(outputFile);
+					
+					fprintf(outputFile, "return { ");
+					L1GenerateIR(rootASTNode, NULL, & L1LuaTableOutputFunctions, outputFile);
+					fprintf(outputFile, " }");
+					
+					fclose(outputFile);
+				}*/
 				
 				{
 					FILE* outputFile = fopen(outputPath, "wb");
 					assert(outputFile);
-					uint8_t header[] = "L1IRV1\0";
-					fwrite(header, sizeof(header), 1, outputFile);
-					size_t byteCount = 0;
-					const void* bytes = L1ByteBufferGetBytes(buffer, & byteCount);
-					{
-						uint64_t byteCount64 = byteCount;
-						fwrite(& byteCount64, sizeof(uint64_t), 1, outputFile);
-					}
-					fwrite(bytes, byteCount, 1, outputFile);
+					
+					fprintf(outputFile, "[");
+					L1GenerateIR(rootASTNode, NULL, & L1JSONTableOutputFunctions, outputFile);
+					fprintf(outputFile, "]");
+					
 					fclose(outputFile);
 				}
-				
-				L1ByteBufferDelete(buffer);
 			}
 			break;
 		case L1ParserErrorTypeUnexpectedToken:

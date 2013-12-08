@@ -22,28 +22,22 @@ static uint64_t GenerateID(uint64_t* nextID)
 	return (*nextID)++;
 }
 
-static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding, L1ByteBuffer* buffer, uint64_t* nextID)
+static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding, uint64_t* nextID, const L1GenerateIROutputFunctions* outputFunctions, void* userdata)
 {
-	assert(buffer);
+	assert(outputFunctions);
 	assert(astNode);
 	switch (astNode->type)
 	{
 		case L1ParserASTNodeTypeNatural:
 			{
 				uint64_t destination = GenerateID(nextID);
-				L1ByteBufferWriteUInt8(buffer, L1IRStatementTypeLoadInteger);
-				L1ByteBufferWriteUInt64(buffer, destination);
-				L1ByteBufferWriteUInt64(buffer, astNode->data.natural.byteCount);
-				L1ByteBufferWrite(buffer, astNode->data.natural.bytes, astNode->data.natural.byteCount);
+				outputFunctions->loadInteger(destination, astNode->data.natural.byteCount, astNode->data.natural.bytes, userdata);
 				return destination;
 			}
 		case L1ParserASTNodeTypeString:
 			{
 				uint64_t destination = GenerateID(nextID);
-				L1ByteBufferWriteUInt8(buffer, L1IRStatementTypeLoadInteger);
-				L1ByteBufferWriteUInt64(buffer, destination);
-				L1ByteBufferWriteUInt64(buffer, astNode->data.string.byteCount);
-				L1ByteBufferWrite(buffer, astNode->data.string.bytes, astNode->data.string.byteCount);
+				outputFunctions->loadInteger(destination, astNode->data.string.byteCount, astNode->data.string.bytes, userdata);
 				return destination;
 			}
 		case L1ParserASTNodeTypeIdentifier:
@@ -51,15 +45,8 @@ static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding,
 				assert(binding);
 				const Binding* b = binding;
 				
-				/*printf("Searching for: ");
-				fwrite(astNode->data.identifier.bytes, astNode->data.identifier.byteCount, 1, stdout);
-				printf("(byte count: %i)\n", (int)astNode->data.identifier.byteCount);*/
-				
 				while (b)
 				{
-					/*printf("Found: ");
-					fwrite(b->bytes, b->byteCount, 1, stdout);
-					printf("(byte count: %i)\n", (int)b->byteCount);*/
 					if((b->byteCount == astNode->data.identifier.byteCount) and (0 == memcmp(b->bytes, astNode->data.identifier.bytes, b->byteCount)))
 					{
 						return b->source;
@@ -72,43 +59,30 @@ static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding,
 			break;
 		case L1ParserASTNodeTypeCall:
 			{
-				uint64_t callee = Generate(astNode->data.call.callee, binding, buffer, nextID);
+				uint64_t callee = Generate(astNode->data.call.callee, binding, nextID, outputFunctions, userdata);
 				uint64_t destination = GenerateID(nextID);
 				
-				L1ByteBufferWriteUInt8(buffer, L1IRStatementTypeCall);
-				L1ByteBufferWriteUInt64(buffer, destination);
-				L1ByteBufferWriteUInt64(buffer, callee);
-				
-				//Unfortunately we need to iterate through it twice to find the length first
+				L1Array argumentArray;
+				L1ArrayInitialize(& argumentArray);
 				{
-					uint64_t i = 0;
 					const L1ParserASTNodeLinkedList* elements = astNode->data.call.arguments;
 					while (elements)
 					{
-						i++;
+						uint64_t argument = Generate(elements->head, binding, nextID, outputFunctions, userdata);
+						L1ArrayAppend(& argumentArray, & argument, sizeof(uint64_t));
 						elements = elements->tail;
 					}
-					L1ByteBufferWriteUInt64(buffer, i);
 				}
 				
-				{
-					uint64_t i = 0;
-					const L1ParserASTNodeLinkedList* elements = astNode->data.call.arguments;
-					while (elements)
-					{
-						uint64_t argument = Generate(elements->head, binding, buffer, nextID);
-						L1ByteBufferWriteUInt64(buffer, argument);
-						i++;
-						elements = elements->tail;
-					}
-				}
+				outputFunctions->call(destination, callee, L1ArrayGetElementCount(& argumentArray), L1ArrayGetElements(& argumentArray), userdata);
+				
+				L1ArrayDeinitialize(& argumentArray);
 				
 				return destination;
 			}
 		case L1ParserASTNodeTypeAssignment:
 			{
 				assert(astNode->data.assignment.destination);
-				
 				
 				if (astNode->data.assignment.destination->type == L1ParserASTNodeTypeIdentifier)
 				{
@@ -157,19 +131,12 @@ static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding,
 								a = a->tail;
 							}
 							
-							source = Generate(astNode->data.assignment.source, bindings + i - 1, buffer, nextID);
+							source = Generate(astNode->data.assignment.source, bindings + i - 1, nextID, outputFunctions, userdata);
 							
 							free(bindings);
 						}
 						
-						L1ByteBufferWriteUInt8(buffer, L1IRStatementTypeClosure);
-						L1ByteBufferWriteUInt64(buffer, closureDestination);
-						L1ByteBufferWriteUInt64(buffer, source);
-						L1ByteBufferWriteUInt64(buffer, argumentCount);
-						for (uint64_t i = 0; i < argumentCount; i++)
-						{
-							L1ByteBufferWriteUInt64(buffer, arguments[i]);
-						}
+						outputFunctions->closure(closureDestination, source, argumentCount, arguments, userdata);
 						
 						source = closureDestination;
 						
@@ -179,7 +146,7 @@ static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding,
 					}
 					else
 					{
-						source = Generate(astNode->data.assignment.source, binding, buffer, nextID);
+						source = Generate(astNode->data.assignment.source, binding, nextID, outputFunctions, userdata);
 					}
 					
 					Binding newBinding;
@@ -188,60 +155,47 @@ static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding,
 					newBinding.source = source;
 					newBinding.previous = binding;
 					
-					return Generate(astNode->data.assignment.followingContext, & newBinding, buffer, nextID);
+					return Generate(astNode->data.assignment.followingContext, & newBinding, nextID, outputFunctions, userdata);
 				}
 				abort();
 			}
 		case L1ParserASTNodeTypeBranch:
 			{
 				uint64_t destination = GenerateID(nextID);
-				uint64_t condition = Generate(astNode->data.branch.condition, binding, buffer, nextID);
-				uint64_t resultIfTrue = Generate(astNode->data.branch.resultIfTrue, binding, buffer, nextID);
-				uint64_t resultIfFalse = Generate(astNode->data.branch.resultIfFalse, binding, buffer, nextID);
+				uint64_t condition = Generate(astNode->data.branch.condition, binding, nextID, outputFunctions, userdata);
+				uint64_t resultIfTrue = Generate(astNode->data.branch.resultIfTrue, binding, nextID, outputFunctions, userdata);
+				uint64_t resultIfFalse = Generate(astNode->data.branch.resultIfFalse, binding, nextID, outputFunctions, userdata);
 				
-				L1ByteBufferWriteUInt8(buffer, L1IRStatementTypeBranch);
-				L1ByteBufferWriteUInt64(buffer, destination);
-				L1ByteBufferWriteUInt64(buffer, condition);
-				L1ByteBufferWriteUInt64(buffer, resultIfTrue);
-				L1ByteBufferWriteUInt64(buffer, resultIfFalse);
+				outputFunctions->branch(destination, condition, resultIfTrue, resultIfFalse, userdata);
 				
 				return destination;
 			}
 		case L1ParserASTNodeTypeList:
-			//abort();
 			{
 				uint64_t destination = GenerateID(nextID);
 				
-				L1ByteBufferWriteUInt8(buffer, L1IRStatementTypeList);
-				L1ByteBufferWriteUInt64(buffer, destination);
-				
+				L1Array elementArray;
+				L1ArrayInitialize(& elementArray);
 				{
-					uint64_t elementCount = 0;
-					const L1ParserASTNodeLinkedList* a = astNode->data.list.elements;
-					while (a)
+					const L1ParserASTNodeLinkedList* elements = astNode->data.list.elements;
+					while (elements)
 					{
-						elementCount++;
-						a = a->tail;
-					}
-					L1ByteBufferWriteUInt64(buffer, elementCount);
-				}
-				
-				{
-					const L1ParserASTNodeLinkedList* a = astNode->data.list.elements;
-					while (a)
-					{
-						uint64_t element = Generate(a->head, binding, buffer, nextID);
-						L1ByteBufferWriteUInt64(buffer, element);
-						a = a->tail;
+						uint64_t element = Generate(elements->head, binding, nextID, outputFunctions, userdata);
+						L1ArrayAppend(& elementArray, & element, sizeof(uint64_t));
+						elements = elements->tail;
 					}
 				}
+				
+				outputFunctions->list(destination, L1ArrayGetElementCount(& elementArray), L1ArrayGetElements(& elementArray), userdata);
+				
+				L1ArrayDeinitialize(& elementArray);
 				
 				return destination;
 			}
 	}
 }
 
-uint64_t L1GenerateIR(const L1ParserASTNode* node, L1ByteBuffer* buffer, uint64_t* nextID)
+uint64_t L1GenerateIR(const L1ParserASTNode* node, uint64_t* nextID, const L1GenerateIROutputFunctions* outputFunctions, void* userdata)
 {
 	//L1IRStatementTypeLoadIntegerLessThan
 	assert(node);
@@ -255,8 +209,7 @@ uint64_t L1GenerateIR(const L1ParserASTNode* node, L1ByteBuffer* buffer, uint64_
 	binding = & integerLessThanBinding;
 	{
 		binding->source = GenerateID(nextID);
-		L1ByteBufferWriteUInt8(buffer, L1IRStatementTypeLoadIntegerLessThan);
-		L1ByteBufferWriteUInt64(buffer, binding->source);
+		outputFunctions->loadIntegerLessThan(binding->source, userdata);
 		const static uint8_t bytes[] = "__integer_less_than";
 		binding->bytes = bytes;
 		binding->byteCount = strlen((const char*)bytes);
@@ -267,15 +220,13 @@ uint64_t L1GenerateIR(const L1ParserASTNode* node, L1ByteBuffer* buffer, uint64_
 	binding = & loadBooleanFromIntegerBinding;
 	{
 		binding->source = GenerateID(nextID);
-		L1ByteBufferWriteUInt8(buffer, L1IRStatementTypeLoadBooleanFromInteger);
-		L1ByteBufferWriteUInt64(buffer, binding->source);
+		outputFunctions->loadBooleanFromInteger(binding->source, userdata);
 		const static uint8_t bytes[] = "__boolean_from_integer";
 		binding->bytes = bytes;
 		binding->byteCount = strlen((const char*)bytes);
 	}
 	
-	uint64_t source = Generate(node, binding, buffer, nextID);
-	L1ByteBufferWriteUInt8(buffer, L1IRStatementTypeExport);
-	L1ByteBufferWriteUInt64(buffer, source);
+	uint64_t source = Generate(node, binding, nextID, outputFunctions, userdata);
+	outputFunctions->export(source, userdata);
 	return source;
 }
