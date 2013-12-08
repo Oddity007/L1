@@ -40,6 +40,8 @@ local Rules = {
 	{type = "openexpression", "chainedexpression", action = "return arguments[0];"},
 	
 	{type = "branch", "chainedexpression", "QuestionMark", "chainedexpression", "Terminal", "openexpression", action = "return CreateBranchNode(parser, arguments[0], arguments[2], arguments[4]);"},
+	{type = "branch", "chainedexpression", "QuestionMark", "Terminal", "openexpression", action = "return CreateBranchNode(parser, arguments[0], NULL, arguments[3]);"},
+	{type = "branch", "chainedexpression", "QuestionMark", "chainedexpression", "Terminal", action = "return CreateBranchNode(parser, arguments[0], arguments[2], NULL);"},
 	
 	{type = "assignment", "assignment_target", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], NULL, arguments[2], arguments[4]);"},
 	{type = "assignment", "assignment_target", "assignment_arguments", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], arguments[1], arguments[3], arguments[5]);"},

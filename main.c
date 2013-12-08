@@ -12,8 +12,12 @@
 
 static void PrintASTNode(const L1ParserASTNode* node, int indentLevel)
 {
-	if(not node) return;
 	for (int i = 0; i < indentLevel; i++) fputc('\t', stdout);
+	if(not node)
+	{
+		puts("(undefined)");
+		return;
+	}
 	switch (node->type)
 	{
 		case L1ParserASTNodeTypeNatural:

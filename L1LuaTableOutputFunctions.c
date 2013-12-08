@@ -77,6 +77,12 @@ static void export(uint64_t source, void* userdata)
 	fprintf(file, "{type = \"export\", source = %" PRIu64 "}, \n", source);
 }
 
+static void loadUndefined(uint64_t destination, void* userdata)
+{
+	FILE* file = userdata;
+	fprintf(file, "{type = \"loadUndefined\", destination = %" PRIu64 "}, \n", destination);
+}
+
 const L1GenerateIROutputFunctions L1LuaTableOutputFunctions =
 {
 	loadInteger,
@@ -86,7 +92,8 @@ const L1GenerateIROutputFunctions L1LuaTableOutputFunctions =
 	list,
 	loadIntegerLessThan,
 	loadBooleanFromInteger,
-	export
+	export,
+	loadUndefined
 };
 
 #endif

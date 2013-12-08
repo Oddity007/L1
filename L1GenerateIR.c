@@ -22,6 +22,13 @@ static uint64_t GenerateID(uint64_t* nextID)
 	return (*nextID)++;
 }
 
+static uint64_t GenerateUndefined(uint64_t* nextID, const L1GenerateIROutputFunctions* outputFunctions, void* userdata)
+{
+	uint64_t destination = GenerateID(nextID);
+	outputFunctions->loadUndefined(destination, userdata);
+	return destination;
+}
+
 static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding, uint64_t* nextID, const L1GenerateIROutputFunctions* outputFunctions, void* userdata)
 {
 	assert(outputFunctions);
@@ -163,8 +170,9 @@ static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding,
 			{
 				uint64_t destination = GenerateID(nextID);
 				uint64_t condition = Generate(astNode->data.branch.condition, binding, nextID, outputFunctions, userdata);
-				uint64_t resultIfTrue = Generate(astNode->data.branch.resultIfTrue, binding, nextID, outputFunctions, userdata);
-				uint64_t resultIfFalse = Generate(astNode->data.branch.resultIfFalse, binding, nextID, outputFunctions, userdata);
+				
+				uint64_t resultIfTrue = astNode->data.branch.resultIfTrue ? Generate(astNode->data.branch.resultIfTrue, binding, nextID, outputFunctions, userdata) : GenerateUndefined(nextID, outputFunctions, userdata);
+				uint64_t resultIfFalse = astNode->data.branch.resultIfFalse ? Generate(astNode->data.branch.resultIfFalse, binding, nextID, outputFunctions, userdata) : GenerateUndefined(nextID, outputFunctions, userdata);
 				
 				outputFunctions->branch(destination, condition, resultIfTrue, resultIfFalse, userdata);
 				

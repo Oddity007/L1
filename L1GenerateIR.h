@@ -18,6 +18,7 @@ typedef struct
 	void (*loadIntegerLessThan)(uint64_t destination, void* userdata);
 	void (*loadBooleanFromInteger)(uint64_t destination, void* userdata);
 	void (*export)(uint64_t source, void* userdata);
+	void (*loadUndefined)(uint64_t destination, void* userdata);
 }L1GenerateIROutputFunctions;
 
 uint64_t L1GenerateIR(const L1ParserASTNode* node, uint64_t* nextID, const L1GenerateIROutputFunctions* outputFunctions, void* userdata);
