@@ -12,5 +12,7 @@ integer_geq a b = boolean_not (integer_lt a b);
 integer_leq a b = boolean_not (integer_gt a b);
 integer_neq a b = boolean_or (integer_gt a b) (integer_lt a b);
 integer_eq a b = boolean_not (integer_neq a b);
+f a = (g b = a; g);
+add a b = __integer_add a b;
 //integer_eq 1 1
-[integer_lt, integer_gt]
+[integer_lt, integer_gt, f]

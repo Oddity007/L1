@@ -101,7 +101,8 @@ static uint64_t Generate(const L1ParserASTNode* astNode, const Binding* binding,
 						{
 							const static uint8_t bytes[] = "__self";
 							selfBinding.bytes = bytes;
-							selfBinding.byteCount = sizeof(bytes);
+							selfBinding.byteCount = sizeof(bytes) - 1;
+							//strlen((const char*)bytes);
 						}
 						selfBinding.previous = binding;
 						selfBinding.source = closureDestination;
@@ -230,6 +231,17 @@ uint64_t L1GenerateIR(const L1ParserASTNode* node, uint64_t* nextID, const L1Gen
 		binding->source = GenerateID(nextID);
 		outputFunctions->loadBooleanFromInteger(binding->source, userdata);
 		const static uint8_t bytes[] = "__boolean_from_integer";
+		binding->bytes = bytes;
+		binding->byteCount = strlen((const char*)bytes);
+	}
+	
+	Binding loadIntegerAddBinding;
+	loadIntegerAddBinding.previous = binding;
+	binding = & loadIntegerAddBinding;
+	{
+		binding->source = GenerateID(nextID);
+		outputFunctions->loadIntegerAdd(binding->source, userdata);
+		const static uint8_t bytes[] = "__integer_add";
 		binding->bytes = bytes;
 		binding->byteCount = strlen((const char*)bytes);
 	}

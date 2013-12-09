@@ -189,7 +189,7 @@ static void CompileFile(const char* inputPath, const char* outputPath)
 					
 					fprintf(outputFile, "[");
 					L1GenerateIR(rootASTNode, NULL, & L1JSONTableOutputFunctions, outputFile);
-					fprintf(outputFile, "]");
+					fprintf(outputFile, "{}]");
 					
 					fclose(outputFile);
 				}

@@ -93,7 +93,14 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 				else if (self->inputBytes[1] == '*')
 				{
 					self->inputBytes += 2;
-					while(*self->inputBytes and self->inputBytes[0] not_eq '*' and self->inputBytes[1] not_eq '/') self->inputBytes++;
+					while(*self->inputBytes)
+					{
+						if(self->inputBytes[0] == '*' and self->inputBytes[1] == '/')
+						{
+							break;
+						}
+						self->inputBytes++;
+					}
 					self->inputBytes += 2;
 					break;
 				}
