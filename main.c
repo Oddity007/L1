@@ -10,7 +10,7 @@
 #include "L1LuaTableOutputFunctions.h"
 #include "L1JSONTableOutputFunctions.h"
 
-static void PrintASTNode(const L1ParserASTNode* node, int indentLevel)
+/*static void PrintASTNode(const L1ParserASTNode* node, int indentLevel)
 {
 	for (int i = 0; i < indentLevel; i++) fputc('\t', stdout);
 	if(not node)
@@ -106,7 +106,7 @@ static void PrintASTNode(const L1ParserASTNode* node, int indentLevel)
 			abort();
 			break;
 	}
-}
+}*/
 
 static char* LoadFileAsString(const char* filename)
 {
@@ -128,7 +128,13 @@ static char* LoadFileAsString(const char* filename)
 	return string;
 }
 
-static void CompileFile(const char* inputPath, const char* outputPath)
+typedef enum
+{
+	IROutputTypeJSON,
+	IROutputTypeLuaTable
+}IROutputType;
+
+static void CompileFile(const char* inputPath, const char* outputPath, IROutputType irOutputType)
 {
 	char* codeString = LoadFileAsString(inputPath);
 	L1Lexer* lexer = L1LexerNew((const uint8_t*)codeString);
@@ -170,28 +176,41 @@ static void CompileFile(const char* inputPath, const char* outputPath)
 				
 				assert(rootASTNode);
 				
-				PrintASTNode(rootASTNode, 0);
+				//PrintASTNode(rootASTNode, 0);
 				
-				/*{
-					FILE* outputFile = fopen(outputPath, "wb");
-					assert(outputFile);
-					
-					fprintf(outputFile, "return { ");
-					L1GenerateIR(rootASTNode, NULL, & L1LuaTableOutputFunctions, outputFile);
-					fprintf(outputFile, " }");
-					
-					fclose(outputFile);
-				}*/
+				FILE* outputFile = fopen(outputPath, "wb");
 				
+				switch (irOutputType)
 				{
-					FILE* outputFile = fopen(outputPath, "wb");
-					assert(outputFile);
+					case IROutputTypeLuaTable:
+						{
+							FILE* outputFile = fopen(outputPath, "wb");
+							assert(outputFile);
 					
-					fprintf(outputFile, "[");
-					L1GenerateIR(rootASTNode, NULL, & L1JSONTableOutputFunctions, outputFile);
-					fprintf(outputFile, "{}]");
+							fprintf(outputFile, "return { ");
+							L1GenerateIR(rootASTNode, NULL, & L1LuaTableOutputFunctions, outputFile);
+							fprintf(outputFile, " }");
+						
+							fclose(outputFile);
+						}
+						break;
 					
-					fclose(outputFile);
+					case IROutputTypeJSON:
+						{
+							FILE* outputFile = fopen(outputPath, "wb");
+							assert(outputFile);
+					
+							fprintf(outputFile, "[");
+							L1GenerateIR(rootASTNode, NULL, & L1JSONTableOutputFunctions, outputFile);
+							fprintf(outputFile, "{}]");
+					
+							fclose(outputFile);
+						}
+						break;
+					
+					default:
+						abort();
+						break;
 				}
 			}
 			break;
@@ -236,6 +255,9 @@ int main(int argc, const char** argv)
 {
 	const char* outputPath = "a.out";
 	const char* inputPath = NULL;
+	
+	IROutputType irOutputType = IROutputTypeJSON;
+	
 	for (int i = 0; i < argc; i++)
 	{
 		const char* arg = argv[i];
@@ -252,9 +274,18 @@ int main(int argc, const char** argv)
 			i++;
 			outputPath = argv[i];
 		}
+		else if (strcmp(arg, "--lua") == 0)
+		{
+			irOutputType = IROutputTypeLuaTable;
+		}
+		else if (strcmp(arg, "--json") == 0)
+		{
+			irOutputType = IROutputTypeJSON;
+		}
 	}
 	assert(inputPath);
-	CompileFile(inputPath, outputPath);
+	
+	CompileFile(inputPath, outputPath, irOutputType);
 	
 	return 0;
 }
