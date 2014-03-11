@@ -151,7 +151,7 @@ static const L1ParserASTNodeLinkedList* Cons(L1Parser* parser, const L1ParserAST
 	return list;
 }
 
-static L1ParserASTNode* CreateListNode(L1Parser* parser, const L1ParserASTNodeLinkedList* elements)
+static L1ParserASTNode* CreateListNode(L1Parser* parser, const L1ParserASTNodeLinkedList* elements, const L1ParserASTNode* sublist)
 {
 	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
 	node->type = L1ParserASTNodeTypeList;
@@ -169,7 +169,7 @@ static L1ParserASTNode* CreateBranchNode(L1Parser* parser, const L1ParserASTNode
 	return node;
 }
 
-static L1ParserASTNode* CreateAssignmentNode(L1Parser* parser, const L1ParserASTNode* destination, const L1ParserASTNodeLinkedList* arguments, const L1ParserASTNode* source, const L1ParserASTNode* followingContext)
+static L1ParserASTNode* CreateAssignmentNode(L1Parser* parser, const L1ParserASTNode* destination, const L1ParserASTNodeLinkedList* arguments, const L1ParserASTNode* source, const L1ParserASTNode* followingContext, bool isConstructor, const L1ParserASTNode* guardExpression)
 {
 	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
 	node->type = L1ParserASTNodeTypeAssignment;
@@ -177,6 +177,45 @@ static L1ParserASTNode* CreateAssignmentNode(L1Parser* parser, const L1ParserAST
 	node->data.assignment.arguments = arguments;
 	node->data.assignment.source = source;
 	node->data.assignment.followingContext = followingContext;
+	node->data.assignment.guardExpression = guardExpression;
+	node->data.assignment.isConstructor = isConstructor;
+	return node;
+}
+
+static L1ParserASTNode* CreateEvalNode(L1Parser* parser, const L1ParserASTNode* expression)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeEval;
+	node->data.eval.expression = expression;
+	return node;
+}
+
+static L1ParserASTNode* CreateConstructorConstraintNode(L1Parser* parser, const L1ParserASTNode* expression, const L1ParserASTNode* construction)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeConstructorConstraint;
+	node->data.constructorConstraint.expression = expression;
+	node->data.constructorConstraint.construction = construction;
+	return node;
+}
+
+static L1ParserASTNode* CreateAnonymousFunctionNode(L1Parser* parser, const L1ParserASTNodeLinkedList* arguments, const L1ParserASTNode* source, bool isConstructor, const L1ParserASTNode* guardExpression)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeAnonymousFunction;
+	node->data.anonymousFunction.arguments = arguments;
+	node->data.anonymousFunction.source = source;
+	node->data.anonymousFunction.guardExpression = guardExpression;
+	node->data.anonymousFunction.isConstructor = isConstructor;
+	return node;
+}
+
+static L1ParserASTNode* CreateOptionNode(L1Parser* parser, const L1ParserASTNode* construction, const L1ParserASTNode* defaultConstruction)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeOption;
+	node->data.option.construction = construction;
+	node->data.option.defaultConstruction = defaultConstruction;
 	return node;
 }
 

@@ -52,9 +52,36 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 			case '\t':
 				self->inputBytes++;
 				break;
-			case '=':
-				*tokenType = L1LexerTokenTypeAssign;
+			case ':':
 				self->inputBytes++;
+				if (self->inputBytes[0] not_eq ':')
+				{
+					*tokenType = L1LexerTokenTypeSingleColon;
+					goto end;
+				}
+				
+				self->inputBytes++;
+				
+				if (self->inputBytes[0] not_eq '>')
+				{
+					*tokenType = L1LexerTokenTypeDoubleColon;
+				}
+				
+				self->inputBytes++;
+				*tokenType = L1LexerTokenTypeConstructorYield;
+				
+				goto end;
+			case '=':
+				self->inputBytes++;
+				if (self->inputBytes[0] == '>')
+				{
+					*tokenType = L1LexerTokenTypeYield;
+					self->inputBytes++;
+				}
+				else
+				{
+					*tokenType = L1LexerTokenTypeAssign;
+				}
 				goto end;
 			case '(':
 				*tokenType = L1LexerTokenTypeOpeningParenthesis;
@@ -62,6 +89,23 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 				goto end;
 			case ')':
 				*tokenType = L1LexerTokenTypeClosingParenthesis;
+				self->inputBytes++;
+				goto end;
+			case '.':
+				self->inputBytes++;
+				if (self->inputBytes[0] not_eq '.')
+				{
+					*tokenType = L1LexerTokenTypeSingleDot;
+					goto end;
+				}
+				self->inputBytes++;
+				if (self->inputBytes[0] not_eq '.')
+				{
+					*tokenType = L1LexerTokenTypeDoubleDot;
+					goto end;
+				}
+				
+				*tokenType = L1LexerTokenTypeTripleDot;
 				self->inputBytes++;
 				goto end;
 			case '[':
@@ -82,6 +126,22 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 				goto end;
 			case '?':
 				*tokenType = L1LexerTokenTypeQuestionMark;
+				self->inputBytes++;
+				goto end;
+			case '!':
+				*tokenType = L1LexerTokenTypeQuestionMark;
+				self->inputBytes++;
+				goto end;
+			case '|':
+				*tokenType = L1LexerTokenTypeBar;
+				self->inputBytes++;
+				goto end;
+			case '$':
+				*tokenType = L1LexerTokenTypeDollar;
+				self->inputBytes++;
+				goto end;
+			case '\'':
+				*tokenType = L1LexerTokenTypeSingleQuote;
 				self->inputBytes++;
 				goto end;
 			case '/':
@@ -167,7 +227,7 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 				if(*tokenType == L1LexerTokenTypeNatural) goto end;
 				
 				*tokenType = L1LexerTokenTypeIdentifier;
-				const uint8_t reservedCharacters[] = " \n\t\r=()[]\",;?/";
+				const uint8_t reservedCharacters[] = " \n\t\r=()[]\",;?/:>.'!|";
 				const uint8_t* rcp;
 				while (*self->inputBytes)
 				{

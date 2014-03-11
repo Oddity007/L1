@@ -21,6 +21,17 @@ enum L1LexerTokenType
 	L1LexerTokenTypeComma,
 	L1LexerTokenTypeTerminal,
 	L1LexerTokenTypeQuestionMark,
+	L1LexerTokenTypeExclaimationMark,
+	L1LexerTokenTypeSingleColon,
+	L1LexerTokenTypeDoubleColon,
+	L1LexerTokenTypeYield,
+	L1LexerTokenTypeConstructorYield,
+	L1LexerTokenTypeSingleDot,
+	L1LexerTokenTypeDoubleDot,
+	L1LexerTokenTypeTripleDot,
+	L1LexerTokenTypeSingleQuote,
+	L1LexerTokenTypeDollar,
+	L1LexerTokenTypeBar,
 	L1LexerTokenTypeDone,
 	L1LexerTokenTypeLast = L1LexerTokenTypeDone
 };

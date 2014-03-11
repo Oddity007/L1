@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "L1Lexer.h"
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -20,6 +21,10 @@ enum L1ParserASTNodeType
 	L1ParserASTNodeTypeAssignment,
 	L1ParserASTNodeTypeBranch,
 	L1ParserASTNodeTypeList,
+	L1ParserASTNodeTypeConstructorConstraint,
+	L1ParserASTNodeTypeEval,
+	L1ParserASTNodeTypeAnonymousFunction,
+	L1ParserASTNodeTypeOption
 };
 
 typedef enum L1ParserASTNodeType L1ParserASTNodeType;
@@ -59,10 +64,12 @@ struct L1ParserASTNode
 		}call;
 		struct
 		{
+			bool isConstructor;
 			const L1ParserASTNode* destination;
 			const L1ParserASTNodeLinkedList* arguments;
 			const L1ParserASTNode* source;
 			const L1ParserASTNode* followingContext;
+			const L1ParserASTNode* guardExpression;
 		}assignment;
 		struct
 		{
@@ -73,7 +80,29 @@ struct L1ParserASTNode
 		struct
 		{
 			const L1ParserASTNodeLinkedList* elements;
+			const L1ParserASTNode* sublist;
 		}list;
+		struct
+		{
+			const L1ParserASTNode* expression;
+			const L1ParserASTNode* construction;
+		}constructorConstraint;
+		struct
+		{
+			const L1ParserASTNode* expression;
+		}eval;
+		struct
+		{
+			bool isConstructor;
+			const L1ParserASTNodeLinkedList* arguments;
+			const L1ParserASTNode* source;
+			const L1ParserASTNode* guardExpression;
+		}anonymousFunction;
+		struct
+		{
+			const L1ParserASTNode* construction;
+			const L1ParserASTNode* defaultConstruction;
+		}option;
 	}data;
 };
 
