@@ -67,19 +67,10 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 			fprintf(outputFile, node->data.assignment.isConstructor ? "true" : "false");
 			fprintf(outputFile, ", \"destination\" : ");
 			PrintASTNodeJSON(outputFile, node->data.assignment.destination);
-			fprintf(outputFile, ", \"arguments\" : [");
-			for (const L1ParserASTNodeLinkedList* arguments = node->data.assignment.arguments; arguments; arguments = arguments->tail)
-			{
-				PrintASTNodeJSON(outputFile, arguments->head);
-				if (arguments->tail) fprintf(outputFile, ", ");
-			}
-			fprintf(outputFile, "]");
 			fprintf(outputFile, ", \"source\" : ");
 			PrintASTNodeJSON(outputFile, node->data.assignment.source);
 			fprintf(outputFile, ", \"followingContext\" : ");
 			PrintASTNodeJSON(outputFile, node->data.assignment.followingContext);
-			fprintf(outputFile, ", \"guardExpression\" : ");
-			PrintASTNodeJSON(outputFile, node->data.assignment.guardExpression);
 			fprintf(outputFile, "}");
 			break;
 		case L1ParserASTNodeTypeBranch:
@@ -137,8 +128,15 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 			fprintf(outputFile, "]");
 			fprintf(outputFile, ", \"source\" : ");
 			PrintASTNodeJSON(outputFile, node->data.anonymousFunction.source);
-			fprintf(outputFile, ", \"guardExpression\" : ");
-			PrintASTNodeJSON(outputFile, node->data.anonymousFunction.guardExpression);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeOption:
+			fprintf(outputFile, "{");
+			fprintf(outputFile, "\"type\" : \"option\", ");
+			fprintf(outputFile, "\"construction\" : ");
+			PrintASTNodeJSON(outputFile, node->data.option.construction);
+			fprintf(outputFile, ", \"defaultConstruction\" : ");
+			PrintASTNodeJSON(outputFile, node->data.option.defaultConstruction);
 			fprintf(outputFile, "}");
 			break;
 	}

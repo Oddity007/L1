@@ -43,7 +43,7 @@ function handlers.identifier(state, node, inAssignContext)
 		state:bind(node.value, dst)
 	else
 		dst = state:lookupBinding(node.value)
-		if not dst then error("Undefined variable access to " .. hexToString(node.value)) end
+		if not dst then error("Undefined variable access to " .. node.value) end
 	end
 	assert(dst)
 	return dst
@@ -88,14 +88,23 @@ function handlers.branch(state, node, inAssignContext)
 	return dst
 end
 
+function handlers.option(state, node, inAssignContext)
+	assert(node.type == "option")
+	assert(node.construction)
+	assert(node.defaultConstruction)
+	assert(not inAssignContext)
+	local a = state:gen(node.construction, false)
+	local b = state:gen(node.defaultConstruction, false)
+	local dst = state:genid()
+	state:output {type = "option", destination = dst, construction = a, defaultConstruction = b}
+	return dst
+end
+
 function handlers.anonymousFunction(state, node, inAssignContext)
 	assert(not inAssignContext)
 	assert(node.type == "anonymousFunction")
 	assert(node.arguments)
 	state:pushBindingBlock()
-	if node.guardExpression.type ~= "undefined" then
-		error("Not yet implemented")
-	end
 	local argBindings = {}
 	for i = 1, #node.arguments do
 		argBindings[i] = state:gen(node.arguments[i], true)
@@ -107,7 +116,7 @@ function handlers.anonymousFunction(state, node, inAssignContext)
 	else
 		result = state:gen(node.source, false)
 	end
-	for i = #state.arguments, 1, -1 do
+	for i = #node.arguments, 1, -1 do
 		local dst = state:genid()
 		state:output {type = "closure", destination = dst, argument = argBindings[i], result = result}
 		result = dst
@@ -120,16 +129,8 @@ function handlers.assignment(state, node, inAssignContext)
 	assert(not inAssignContext)
 	state:pushBindingBlock()
 	local dst = state:gen(node.destination, true)
-	local src = nil
-	if 0 == #node.arguments then
-		src = state:gen({type = "anonymousFunction", isConstructor = node.isConstructor, arguments = node.arguments, source = node.source, guardExpression = node.guardExpression}, false)
-	else
-		if node.guardExpression.type ~= "undefined" then
-			error("Not yet implemented")
-		end
-		src = state:gen(node.source, false)
-	end
-	state:output {type = "let", destination = dst, source = src}
+	local src = state:gen(node.source, false)
+	state:output {type = node.isConstructor and "construct" or "overload", source = src, destination = dst}
 	local rst = state:gen(node.followingContext, false)
 	state:popBindingBlock()
 	return rst
@@ -164,9 +165,9 @@ function handlers.list(state, node, inAssignContext)
 end
 
 local function GenerateRough(rootNode)
-	local state = {ops = {}, id = 0}
+	local state = {ops = {}, id = 0, bindingDepth = 0}
 	function state:output(op)
-		self.ops[#self.ops] = op
+		self.ops[#self.ops + 1] = op
 	end
 	function state:genid()
 		local id = self.id
@@ -177,26 +178,32 @@ local function GenerateRough(rootNode)
 		return handlers[node.type](state, node, inAssignContext)
 	end
 	function state:pushBindingBlock()
+		self.bindingDepth = self.bindingDepth + 1
 		self.bindingBlock = {bindings = {}, previous = self.bindingBlock}
 	end
 	function state:popBindingBlock()
+		self.bindingDepth = self.bindingDepth - 1
+		assert(self.bindingDepth >= 0)
+		assert(self.bindingBlock)
 		for k, _ in pairs(self.bindingBlock.bindings) do
-			print("Discarding " .. hexToString(k))
+			print("Discarding " .. k)
 		end
-		self.bindingBlock = self.previous
+		self.bindingBlock = self.bindingBlock.previous
 	end
 	function state:bind(identifier, id)
+		assert(id)
 		assert(self.bindingBlock)
+		assert(not self.bindingBlock.bindings[identifier])
 		self.bindingBlock.bindings[identifier] = id
-		print("Binding " .. hexToString(identifier))
+		print("Binding " .. identifier)
 	end
 	function state:lookupBinding(identifier)
 		local b = self.bindingBlock
-		print("Looking for " .. hexToString(identifier))
+		print("Looking for " .. identifier)
 		while b do
 			local id = b.bindings[identifier]
 			for k, _ in pairs(b.bindings) do
-				print("Found " .. hexToString(k))
+				print("Found " .. k)
 			end
 			if id then return id end
 			b = b.previous
@@ -208,31 +215,4 @@ local function GenerateRough(rootNode)
 	return destination, state.ops
 end
 
--- Print contents of `tbl`, with indentation.
--- `indent` sets the initial level of indentation.
-local function tprint (tbl, indent)
-  if not indent then indent = 0 end
-  for k, v in pairs(tbl) do
-    formatting = string.rep("  ", indent) .. k .. ": "
-    if type(v) == "table" then
-      print(formatting)
-      tprint(v, indent+1)
-    else
-      print(formatting .. tostring(v))
-    end
-  end
-end
-
-local function FileAsString(filename)
-	local f = io.open(filename, "r")
-	local s = f:read("*all")
-	f:close()
-	return s
-end
-
-local json = require "dkjson"
-local ast = json.decode(FileAsString("build/sample_ast.json"))
-print "JSON:"
-tprint(ast, 0)
-local rough = GenerateRough(ast)
-tprint(rough, 0)
+return GenerateRough

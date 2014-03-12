@@ -3,32 +3,28 @@ local Tokens = {"Natural", "Identifier", "String", "Assign", "OpeningParenthesis
 local Rules = {
 	{type = "program", "openexpression", "Done", action = "return arguments[0];"},
 	
-	{type = "openexpression", "anonymousfunction", action = "return arguments[0];"},
-	{type = "openexpression", "constraint", action = "return arguments[0];"},
 	{type = "openexpression", "assignment", action = "return arguments[0];"},
 	{type = "openexpression", "branch", action = "return arguments[0];"},
-	{type = "openexpression", "chainedexpression", action = "return arguments[0];"},
+	{type = "openexpression", "annotatedchainedexpression", action = "return arguments[0];"},
 	
-	{type = "constraint", "chainedexpression", "SingleColon", "chainedexpression", action = "return CreateConstructorConstraintNode(parser, arguments[0], arguments[2]);"},
+	{type = "option", "chainedexpression", "Bar", "annotatedchainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},
 	
-	{type = "anonymousfunction", "assignment_arguments", "Yield", "chainedexpression", action = "return CreateAnonymousFunctionNode(parser, arguments[0], arguments[2], false, NULL);"},
-	{type = "anonymousfunction", "assignment_arguments", "ConstructorYield", "chainedexpression", action = "return CreateAnonymousFunctionNode(parser, arguments[0], arguments[2], false, NULL);"},
+	{type = "constraint", "chainedexpression", "SingleColon", "annotatedchainedexpression", action = "return CreateConstructorConstraintNode(parser, arguments[0], arguments[2]);"},
 	
-	{type = "branch", "chainedexpression", "QuestionMark", "chainedexpression", "Terminal", "openexpression", action = "return CreateBranchNode(parser, arguments[0], arguments[2], arguments[4]);"},
-	{type = "branch", "chainedexpression", "QuestionMark", "Terminal", "openexpression", action = "return CreateBranchNode(parser, arguments[0], NULL, arguments[3]);"},
-	{type = "branch", "chainedexpression", "QuestionMark", "chainedexpression", "Terminal", action = "return CreateBranchNode(parser, arguments[0], arguments[2], NULL);"},
+	{type = "anonymousfunction", "chainedexpression_arguments", "Yield", "annotatedchainedexpression", action = "return CreateAnonymousFunctionNode(parser, arguments[0], arguments[2], false);"},
+	{type = "anonymousfunction", "chainedexpression_arguments", "ConstructorYield", "annotatedchainedexpression", action = "return CreateAnonymousFunctionNode(parser, arguments[0], arguments[2], true);"},
 	
-	{type = "assignment", "assignment_target", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], NULL, arguments[2], arguments[4], false, NULL);"},
-	{type = "assignment", "assignment_target", "assignment_arguments", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], arguments[1], arguments[3], arguments[5], false, NULL);"},
+	{type = "branch", "annotatedchainedexpression", "QuestionMark", "annotatedchainedexpression", "Terminal", "openexpression", action = "return CreateBranchNode(parser, arguments[0], arguments[2], arguments[4]);"},
+	{type = "branch", "annotatedchainedexpression", "QuestionMark", "Terminal", "openexpression", action = "return CreateBranchNode(parser, arguments[0], NULL, arguments[3]);"},
+	{type = "branch", "annotatedchainedexpression", "QuestionMark", "annotatedchainedexpression", "Terminal", action = "return CreateBranchNode(parser, arguments[0], arguments[2], NULL);"},
 	
-	{type = "assignment", "assignment_target", "DoubleColon", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], NULL, arguments[2], arguments[4], true, NULL);"},
-	{type = "assignment", "assignment_target", "assignment_arguments", "DoubleColon", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], arguments[1], arguments[3], arguments[5], true, NULL);"},
+	{type = "assignment", "annotatedchainedexpression", "Assign", "annotatedchainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], arguments[2], arguments[4], false);"},
+	{type = "assignment", "annotatedchainedexpression", "DoubleColon", "annotatedchainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], arguments[2], arguments[4], true);"},
 	
-	{type = "assignment_arguments", "assignment_target", "assignment_arguments", action = "return Cons(parser, arguments[0], arguments[1]);"},
-	{type = "assignment_arguments", "assignment_target", action = "return Cons(parser, arguments[0], NULL);"},
-	{type = "assignment_arguments", action = "return NULL;"},
-	
-	{type = "assignment_target", "closedexpression", action = "return arguments[0];"},
+	{type = "annotatedchainedexpression", "option", action = "return arguments[0];"},
+	{type = "annotatedchainedexpression", "anonymousfunction", action = "return arguments[0];"},
+	{type = "annotatedchainedexpression", "constraint", action = "return arguments[0];"},
+	{type = "annotatedchainedexpression", "chainedexpression", action = "return arguments[0];"},
 	
 	{type = "chainedexpression", "closedexpression", "chainedexpression_arguments", action = "return CreateCallNode(parser, arguments[0], arguments[1]);"},
 	{type = "chainedexpression", "closedexpression", action = "return arguments[0];"},
@@ -45,9 +41,9 @@ local Rules = {
 	{type = "closedexpression", "OpeningSquareBracket", "list_body", "ClosingSquareBracket", action = "return CreateListNode(parser, arguments[1], NULL);"},
 	{type = "closedexpression", "SingleQuote", "closedexpression", action = "return CreateEvalNode(parser, arguments[1]);"},
 	
-	{type = "list_body", "chainedexpression", "Comma", "list_body", action = "return Cons(parser, arguments[0], arguments[2]);"},
-	{type = "list_body", "chainedexpression", "Comma", action = "return Cons(parser, arguments[0], NULL);"},
-	{type = "list_body", "chainedexpression", action = "return Cons(parser, arguments[0], NULL);"},
+	{type = "list_body", "annotatedchainedexpression", "Comma", "list_body", action = "return Cons(parser, arguments[0], arguments[2]);"},
+	{type = "list_body", "annotatedchainedexpression", "Comma", action = "return Cons(parser, arguments[0], NULL);"},
+	{type = "list_body", "annotatedchainedexpression", action = "return Cons(parser, arguments[0], NULL);"},
 	{type = "list_body", action = "return NULL;"},
 }
 

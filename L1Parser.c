@@ -169,15 +169,13 @@ static L1ParserASTNode* CreateBranchNode(L1Parser* parser, const L1ParserASTNode
 	return node;
 }
 
-static L1ParserASTNode* CreateAssignmentNode(L1Parser* parser, const L1ParserASTNode* destination, const L1ParserASTNodeLinkedList* arguments, const L1ParserASTNode* source, const L1ParserASTNode* followingContext, bool isConstructor, const L1ParserASTNode* guardExpression)
+static L1ParserASTNode* CreateAssignmentNode(L1Parser* parser, const L1ParserASTNode* destination, const L1ParserASTNode* source, const L1ParserASTNode* followingContext, bool isConstructor)
 {
 	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
 	node->type = L1ParserASTNodeTypeAssignment;
 	node->data.assignment.destination = destination;
-	node->data.assignment.arguments = arguments;
 	node->data.assignment.source = source;
 	node->data.assignment.followingContext = followingContext;
-	node->data.assignment.guardExpression = guardExpression;
 	node->data.assignment.isConstructor = isConstructor;
 	return node;
 }
@@ -199,13 +197,12 @@ static L1ParserASTNode* CreateConstructorConstraintNode(L1Parser* parser, const 
 	return node;
 }
 
-static L1ParserASTNode* CreateAnonymousFunctionNode(L1Parser* parser, const L1ParserASTNodeLinkedList* arguments, const L1ParserASTNode* source, bool isConstructor, const L1ParserASTNode* guardExpression)
+static L1ParserASTNode* CreateAnonymousFunctionNode(L1Parser* parser, const L1ParserASTNodeLinkedList* arguments, const L1ParserASTNode* source, bool isConstructor)
 {
 	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
 	node->type = L1ParserASTNodeTypeAnonymousFunction;
 	node->data.anonymousFunction.arguments = arguments;
 	node->data.anonymousFunction.source = source;
-	node->data.anonymousFunction.guardExpression = guardExpression;
 	node->data.anonymousFunction.isConstructor = isConstructor;
 	return node;
 }

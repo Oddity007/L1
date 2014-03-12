@@ -66,10 +66,8 @@ struct L1ParserASTNode
 		{
 			bool isConstructor;
 			const L1ParserASTNode* destination;
-			const L1ParserASTNodeLinkedList* arguments;
 			const L1ParserASTNode* source;
 			const L1ParserASTNode* followingContext;
-			const L1ParserASTNode* guardExpression;
 		}assignment;
 		struct
 		{
@@ -96,7 +94,6 @@ struct L1ParserASTNode
 			bool isConstructor;
 			const L1ParserASTNodeLinkedList* arguments;
 			const L1ParserASTNode* source;
-			const L1ParserASTNode* guardExpression;
 		}anonymousFunction;
 		struct
 		{
