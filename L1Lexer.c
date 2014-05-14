@@ -61,17 +61,14 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 				}
 				
 				self->inputBytes++;
-				
-				if (self->inputBytes[0] not_eq '>')
-				{
-					*tokenType = L1LexerTokenTypeDoubleColon;
-				}
-				
-				self->inputBytes++;
-				*tokenType = L1LexerTokenTypeConstructorYield;
+				*tokenType = L1LexerTokenTypeDoubleColon;
 				
 				goto end;
 			case '=':
+				self->inputBytes++;
+				*tokenType = L1LexerTokenTypeAssign;
+				goto end;
+			case '-':
 				self->inputBytes++;
 				if (self->inputBytes[0] == '>')
 				{
@@ -80,7 +77,8 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 				}
 				else
 				{
-					*tokenType = L1LexerTokenTypeAssign;
+					self->lastErrorType = L1LexerErrorTypeInvalidSequence;
+					*tokenType = L1LexerTokenTypeDone;
 				}
 				goto end;
 			case '(':
@@ -129,7 +127,7 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 				self->inputBytes++;
 				goto end;
 			case '!':
-				*tokenType = L1LexerTokenTypeQuestionMark;
+				*tokenType = L1LexerTokenTypeExclaimationMark;
 				self->inputBytes++;
 				goto end;
 			case '|':
@@ -227,7 +225,7 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 				if(*tokenType == L1LexerTokenTypeNatural) goto end;
 				
 				*tokenType = L1LexerTokenTypeIdentifier;
-				const uint8_t reservedCharacters[] = " \n\t\r=()[]\",;?/:>.'!|";
+				const uint8_t reservedCharacters[] = " \n\t\r=()[]\",;?/:$>.'!|-";
 				const uint8_t* rcp;
 				while (*self->inputBytes)
 				{

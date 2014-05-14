@@ -19,12 +19,13 @@ enum L1ParserASTNodeType
 	L1ParserASTNodeTypeIdentifier,
 	L1ParserASTNodeTypeCall,
 	L1ParserASTNodeTypeAssignment,
-	L1ParserASTNodeTypeBranch,
 	L1ParserASTNodeTypeList,
-	L1ParserASTNodeTypeConstructorConstraint,
-	L1ParserASTNodeTypeEval,
 	L1ParserASTNodeTypeAnonymousFunction,
-	L1ParserASTNodeTypeOption
+	L1ParserASTNodeTypeOption,
+	L1ParserASTNodeTypeConstraint,
+	L1ParserASTNodeTypeAny,
+	L1ParserASTNodeTypeInlineConstraint,
+	L1ParserASTNodeTypeMetasymbol
 };
 
 typedef enum L1ParserASTNodeType L1ParserASTNodeType;
@@ -64,17 +65,12 @@ struct L1ParserASTNode
 		}call;
 		struct
 		{
-			bool isConstructor;
 			const L1ParserASTNode* destination;
+			const L1ParserASTNodeLinkedList* arguments;
 			const L1ParserASTNode* source;
 			const L1ParserASTNode* followingContext;
+			bool isMeta;
 		}assignment;
-		struct
-		{
-			const L1ParserASTNode* condition;
-			const L1ParserASTNode* resultIfTrue;
-			const L1ParserASTNode* resultIfFalse;
-		}branch;
 		struct
 		{
 			const L1ParserASTNodeLinkedList* elements;
@@ -82,16 +78,6 @@ struct L1ParserASTNode
 		}list;
 		struct
 		{
-			const L1ParserASTNode* expression;
-			const L1ParserASTNode* construction;
-		}constructorConstraint;
-		struct
-		{
-			const L1ParserASTNode* expression;
-		}eval;
-		struct
-		{
-			bool isConstructor;
 			const L1ParserASTNodeLinkedList* arguments;
 			const L1ParserASTNode* source;
 		}anonymousFunction;
@@ -100,6 +86,25 @@ struct L1ParserASTNode
 			const L1ParserASTNode* construction;
 			const L1ParserASTNode* defaultConstruction;
 		}option;
+		struct
+		{
+			const L1ParserASTNode* expression;
+			const L1ParserASTNode* constraint;
+			const L1ParserASTNode* followingContext;
+		}constraint;
+		struct
+		{
+			const L1ParserASTNode* source;
+		}any;
+		struct
+		{
+			const L1ParserASTNode* expression;
+			const L1ParserASTNode* constraint;
+		}inlineConstraint;
+		struct
+		{
+			const L1ParserASTNode* source;
+		}metasymbol;
 	}data;
 };
 

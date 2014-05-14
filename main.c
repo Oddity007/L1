@@ -19,6 +19,7 @@ static void printHex(FILE* outputFile, const uint8_t* bytes, size_t byteCount)
 
 static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 {
+	//fprintf(stderr, "Parse Node Type is %i\n", node ? (int) node -> type : -1);
 	if (not node)
 	{
 		fprintf(outputFile, "{\"type\" : \"undefined\"}");
@@ -29,8 +30,8 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 		case L1ParserASTNodeTypeNatural:
 			fprintf(outputFile, "{");
 			fprintf(outputFile, "\"type\" : \"natural\", \"value\" : \"");
-			fwrite(node->data.natural.bytes, node->data.natural.byteCount, 1, outputFile);
-			//printHex(outputFile, node->data.natural.bytes, node->data.natural.byteCount);
+			//fwrite(node->data.natural.bytes, node->data.natural.byteCount, 1, outputFile);
+			printHex(outputFile, node->data.natural.bytes, node->data.natural.byteCount);
 			fprintf(outputFile, "\"}");
 			break;
 		case L1ParserASTNodeTypeString:
@@ -42,8 +43,8 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 		case L1ParserASTNodeTypeIdentifier:
 			fprintf(outputFile, "{");
 			fprintf(outputFile, "\"type\" : \"identifier\", \"value\" : \"");
-			fwrite(node->data.identifier.bytes, node->data.identifier.byteCount, 1, outputFile);
-			//printHex(outputFile, node->data.identifier.bytes, node->data.identifier.byteCount);
+			//fwrite(node->data.identifier.bytes, node->data.identifier.byteCount, 1, outputFile);
+			printHex(outputFile, node->data.identifier.bytes, node->data.identifier.byteCount);
 			fprintf(outputFile, "\"}");
 			break;
 		case L1ParserASTNodeTypeCall:
@@ -62,32 +63,27 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 			break;
 		case L1ParserASTNodeTypeAssignment:
 			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"assignment\", ");
-			fprintf(outputFile, "\"isConstructor\" : ");
-			fprintf(outputFile, node->data.assignment.isConstructor ? "true" : "false");
+			fprintf(outputFile, "\"type\" : \"assignment\"");
 			fprintf(outputFile, ", \"destination\" : ");
 			PrintASTNodeJSON(outputFile, node->data.assignment.destination);
+			fprintf(outputFile, ", \"arguments\" : [");
+			for (const L1ParserASTNodeLinkedList* arguments = node->data.assignment.arguments; arguments; arguments = arguments->tail)
+			{
+				PrintASTNodeJSON(outputFile, arguments->head);
+				if (arguments->tail) fprintf(outputFile, ", ");
+			}
+			fprintf(outputFile, "]");
 			fprintf(outputFile, ", \"source\" : ");
 			PrintASTNodeJSON(outputFile, node->data.assignment.source);
 			fprintf(outputFile, ", \"followingContext\" : ");
 			PrintASTNodeJSON(outputFile, node->data.assignment.followingContext);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeBranch:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"branch\", ");
-			fprintf(outputFile, "\"condition\" : ");
-			PrintASTNodeJSON(outputFile, node->data.branch.condition);
-			fprintf(outputFile, ", \"resultIfTrue\" : ");
-			PrintASTNodeJSON(outputFile, node->data.branch.resultIfTrue);
-			fprintf(outputFile, ", \"resultIfFalse\" : ");
-			PrintASTNodeJSON(outputFile, node->data.branch.resultIfTrue);
+			fprintf(outputFile, ", \"isMeta\" : %s", node->data.assignment.isMeta ? "true" : "false");
 			fprintf(outputFile, "}");
 			break;
 		case L1ParserASTNodeTypeList:
 			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"list\", ");
-			fprintf(outputFile, "\"elements\" : [");
+			fprintf(outputFile, "\"type\" : \"list\"");
+			fprintf(outputFile, ", \"elements\" : [");
 			for (const L1ParserASTNodeLinkedList* elements = node->data.list.elements; elements; elements = elements->tail)
 			{
 				PrintASTNodeJSON(outputFile, elements->head);
@@ -98,28 +94,10 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 			PrintASTNodeJSON(outputFile, node->data.list.sublist);
 			fprintf(outputFile, "}");
 			break;
-		case L1ParserASTNodeTypeConstructorConstraint:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"list\", ");
-			fprintf(outputFile, "\"expression\" : ");
-			PrintASTNodeJSON(outputFile, node->data.constructorConstraint.expression);
-			fprintf(outputFile, ", \"construction\" : ");
-			PrintASTNodeJSON(outputFile, node->data.constructorConstraint.construction);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeEval:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"eval\", ");
-			fprintf(outputFile, "\"expression\" : ");
-			PrintASTNodeJSON(outputFile, node->data.eval.expression);
-			fprintf(outputFile, "}");
-			break;
 		case L1ParserASTNodeTypeAnonymousFunction:
 			fprintf(outputFile, "{");
 			fprintf(outputFile, "\"type\" : \"anonymousFunction\", ");
-			fprintf(outputFile, ", \"isConstructor\" : ");
-			fprintf(outputFile, node->data.anonymousFunction.isConstructor ? "true" : "false");
-			fprintf(outputFile, ", \"arguments\" : [");
+			fprintf(outputFile, "\"arguments\" : [");
 			for (const L1ParserASTNodeLinkedList* arguments = node->data.anonymousFunction.arguments; arguments; arguments = arguments->tail)
 			{
 				PrintASTNodeJSON(outputFile, arguments->head);
@@ -138,6 +116,43 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 			fprintf(outputFile, ", \"defaultConstruction\" : ");
 			PrintASTNodeJSON(outputFile, node->data.option.defaultConstruction);
 			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeConstraint:
+			fprintf(outputFile, "{");
+			fprintf(outputFile, "\"type\" : \"constraint\", ");
+			fprintf(outputFile, "\"expression\" : ");
+			PrintASTNodeJSON(outputFile, node->data.constraint.expression);
+			fprintf(outputFile, ", \"constraint\" : ");
+			PrintASTNodeJSON(outputFile, node->data.constraint.constraint);
+			fprintf(outputFile, ", \"followingContext\" : ");
+			PrintASTNodeJSON(outputFile, node->data.constraint.followingContext);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeAny:
+			fprintf(outputFile, "{");
+			fprintf(outputFile, "\"type\" : \"any\", ");
+			fprintf(outputFile, "\"source\" : ");
+			PrintASTNodeJSON(outputFile, node->data.any.source);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeInlineConstraint:
+			fprintf(outputFile, "{");
+			fprintf(outputFile, "\"type\" : \"inlineConstraint\", ");
+			fprintf(outputFile, "\"expression\" : ");
+			PrintASTNodeJSON(outputFile, node->data.inlineConstraint.expression);
+			fprintf(outputFile, ", \"constraint\" : ");
+			PrintASTNodeJSON(outputFile, node->data.inlineConstraint.constraint);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeMetasymbol:
+			fprintf(outputFile, "{");
+			fprintf(outputFile, "\"type\" : \"metasymbol\", ");
+			fprintf(outputFile, "\"source\" : ");
+			PrintASTNodeJSON(outputFile, node->data.metasymbol.source);
+			fprintf(outputFile, "}");
+			break;
+		default:
+			abort();
 			break;
 	}
 }

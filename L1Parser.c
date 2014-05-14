@@ -14,15 +14,15 @@ struct L1Parser
 	const L1ParserASTNode* rootASTNode;
 	L1Region* region;
 	L1ParserErrorType lastError;
-	jmp_buf env;
+	//jmp_buf env;
 };
 
-static void ThrowError(L1Parser* self, L1ParserErrorType type)
+/*static void ThrowError(L1Parser* self, L1ParserErrorType type)
 {
 	self->lastError = type;
 	longjmp(self->env, 1);
 	assert(false);
-}
+}*/
 
 #include <stdio.h>
 
@@ -87,6 +87,7 @@ static uint64_t Parse(L1Parser* self, const L1ParserLexedToken* tokens, uint64_t
 		if (rule.symbol == currentNonterminalSymbol)
 		{
 			const void* matchedSymbolData[rule.symbolCount];
+			for (int j = 0; j < rule.symbolCount; j++) matchedSymbolData[j] = NULL;
 			bool matched = true;
 			uint64_t currentTokenIndex = 0;
 			for (uint8_t j = 0; j < rule.symbolCount; j++)
@@ -156,54 +157,28 @@ static L1ParserASTNode* CreateListNode(L1Parser* parser, const L1ParserASTNodeLi
 	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
 	node->type = L1ParserASTNodeTypeList;
 	node->data.list.elements = elements;
+	node->data.list.sublist = sublist;
 	return node;
 }
 
-static L1ParserASTNode* CreateBranchNode(L1Parser* parser, const L1ParserASTNode* condition, const L1ParserASTNode* resultIfTrue, const L1ParserASTNode* resultIfFalse)
-{
-	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
-	node->type = L1ParserASTNodeTypeBranch;
-	node->data.branch.condition = condition;
-	node->data.branch.resultIfTrue = resultIfTrue;
-	node->data.branch.resultIfFalse = resultIfFalse;
-	return node;
-}
-
-static L1ParserASTNode* CreateAssignmentNode(L1Parser* parser, const L1ParserASTNode* destination, const L1ParserASTNode* source, const L1ParserASTNode* followingContext, bool isConstructor)
+static L1ParserASTNode* CreateAssignmentNode(L1Parser* parser, const L1ParserASTNode* destination, const L1ParserASTNodeLinkedList* arguments, const L1ParserASTNode* source, const L1ParserASTNode* followingContext, bool isMeta)
 {
 	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
 	node->type = L1ParserASTNodeTypeAssignment;
 	node->data.assignment.destination = destination;
+	node->data.assignment.arguments = arguments;
 	node->data.assignment.source = source;
 	node->data.assignment.followingContext = followingContext;
-	node->data.assignment.isConstructor = isConstructor;
+	node->data.assignment.isMeta = isMeta;
 	return node;
 }
 
-static L1ParserASTNode* CreateEvalNode(L1Parser* parser, const L1ParserASTNode* expression)
-{
-	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
-	node->type = L1ParserASTNodeTypeEval;
-	node->data.eval.expression = expression;
-	return node;
-}
-
-static L1ParserASTNode* CreateConstructorConstraintNode(L1Parser* parser, const L1ParserASTNode* expression, const L1ParserASTNode* construction)
-{
-	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
-	node->type = L1ParserASTNodeTypeConstructorConstraint;
-	node->data.constructorConstraint.expression = expression;
-	node->data.constructorConstraint.construction = construction;
-	return node;
-}
-
-static L1ParserASTNode* CreateAnonymousFunctionNode(L1Parser* parser, const L1ParserASTNodeLinkedList* arguments, const L1ParserASTNode* source, bool isConstructor)
+static L1ParserASTNode* CreateAnonymousFunctionNode(L1Parser* parser, const L1ParserASTNodeLinkedList* arguments, const L1ParserASTNode* source)
 {
 	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
 	node->type = L1ParserASTNodeTypeAnonymousFunction;
 	node->data.anonymousFunction.arguments = arguments;
 	node->data.anonymousFunction.source = source;
-	node->data.anonymousFunction.isConstructor = isConstructor;
 	return node;
 }
 
@@ -225,6 +200,41 @@ static L1ParserASTNode* CreateCallNode(L1Parser* parser, const L1ParserASTNode* 
 	return node;
 }
 
+static L1ParserASTNode* CreateConstraintNode(L1Parser* parser, const L1ParserASTNode* expression, const L1ParserASTNode* constraint, const L1ParserASTNode* followingContext)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeConstraint;
+	node->data.constraint.expression = expression;
+	node->data.constraint.constraint = constraint;
+	node->data.constraint.followingContext = followingContext;
+	return node;
+}
+
+static L1ParserASTNode* CreateAnyNode(L1Parser* parser, const L1ParserASTNode* source)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeAny;
+	node->data.any.source = source;
+	return node;
+}
+
+static L1ParserASTNode* CreateInlineConstraintNode(L1Parser* parser, const L1ParserASTNode* expression, const L1ParserASTNode* constraint)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeInlineConstraint;
+	node->data.inlineConstraint.expression = expression;
+	node->data.inlineConstraint.constraint = constraint;
+	return node;
+}
+
+static L1ParserASTNode* CreateMetasymbolNode(L1Parser* parser, const L1ParserASTNode* source)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeMetasymbol;
+	node->data.metasymbol.source = source;
+	return node;
+}
+
 #include "L1ParserGeneratedPortion"
 
 L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
@@ -234,7 +244,7 @@ L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
 	const void* rootASTNode = NULL;
 	self->lastError = L1ParserErrorTypeNone;
 	uint64_t tokensRead = 0;
-	if(not setjmp(self->env))
+	//if(not setjmp(self->env))
 	{
 		assert(self->lastError == L1ParserErrorTypeNone);
 		tokensRead = Parse(self, tokens, tokenCount, & rootASTNode, ProgramSymbol, Rules, RuleCount);
@@ -242,12 +252,12 @@ L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
 		assert(tokensRead > 0);
 		assert(rootASTNode);
 	}
-	else
+	/*else
 	{
 		assert(self->lastError != L1ParserErrorTypeNone);
 		assert(rootASTNode == NULL);
 		//Error
-	}
+	}*/
 	
 	self->rootASTNode = rootASTNode;
 	return self;

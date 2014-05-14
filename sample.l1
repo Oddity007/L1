@@ -1,3 +1,18 @@
-map f [] = [];
-map f [x, ... xs] = [f x, ... map f xs];
+fpc = import;
+
+nat = fpc
+(
+	'nat -> 
+	(
+		.zero = __construct [];
+		.successor ('x : nat) = __construct [x];
+		zero | successor 'x
+	)
+);
+
+factorial = fpc ('f -> ((nat.zero -> nat.successor nat.zero) | (('sx : nat.successor 'x) -> nat.multiply (sx) (f x))));
+
+map 'f [] = [];
+map 'f ['x, ... 'xs] = [f x, ... map f xs];
+
 map
