@@ -2,7 +2,7 @@ local L1GenerateIR = require "L1GenerateIR"
 
 -- Print contents of `tbl`, with indentation.
 -- `indent` sets the initial level of indentation.
-local function tprint (tbl, indent)
+--[[local function tprint (tbl, indent)
   if type(tbl) ~= "table" then
     formatting = string.rep("  ", indent)
     print(formatting .. tostring(tbl))
@@ -26,12 +26,13 @@ local function FileAsString(filename)
 	f:close()
 	return s
 end
+FileAsString("build/sample_ast.json")]]
 
 local json = require "dkjson"
-local ast = json.decode(FileAsString("build/sample_ast.json"))
-print "JSON:"
+local ast = json.decode(io.read("*a"))
+--print "JSON:"
 assert(type(ast) == "table")
-tprint(ast, 0)
-local result, roughOps = L1GenerateIR(ast)
-tprint(roughOps, 0)
-print ("Result: " .. tostring(result))
+--tprint(ast, 0)
+local result = L1GenerateIR(ast)
+--tprint(result, 0)
+print(json.encode(result, {indent = true}))

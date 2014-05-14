@@ -144,11 +144,18 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 			PrintASTNodeJSON(outputFile, node->data.inlineConstraint.constraint);
 			fprintf(outputFile, "}");
 			break;
-		case L1ParserASTNodeTypeMetasymbol:
+		case L1ParserASTNodeTypeMetacall:
 			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"metasymbol\", ");
-			fprintf(outputFile, "\"source\" : ");
-			PrintASTNodeJSON(outputFile, node->data.metasymbol.source);
+			fprintf(outputFile, "\"type\" : \"metacall\", ");
+			fprintf(outputFile, "\"callee\" : ");
+			PrintASTNodeJSON(outputFile, node->data.metacall.callee);
+			fprintf(outputFile, ", \"arguments\" : [");
+			for (const L1ParserASTNodeLinkedList* arguments = node->data.metacall.arguments; arguments; arguments = arguments->tail)
+			{
+				PrintASTNodeJSON(outputFile, arguments->head);
+				if (arguments->tail) fprintf(outputFile, ", ");
+			}
+			fprintf(outputFile, "]");
 			fprintf(outputFile, "}");
 			break;
 		default:

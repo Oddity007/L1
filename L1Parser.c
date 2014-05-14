@@ -227,11 +227,12 @@ static L1ParserASTNode* CreateInlineConstraintNode(L1Parser* parser, const L1Par
 	return node;
 }
 
-static L1ParserASTNode* CreateMetasymbolNode(L1Parser* parser, const L1ParserASTNode* source)
+static L1ParserASTNode* CreateMetacallNode(L1Parser* parser, const L1ParserASTNode* callee, const L1ParserASTNodeLinkedList* arguments)
 {
 	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
-	node->type = L1ParserASTNodeTypeMetasymbol;
-	node->data.metasymbol.source = source;
+	node->type = L1ParserASTNodeTypeMetacall;
+	node->data.metacall.callee = callee;
+	node->data.metacall.arguments = arguments;
 	return node;
 }
 

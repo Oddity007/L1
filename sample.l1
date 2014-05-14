@@ -1,6 +1,7 @@
-fpc = import;
+fix = __import "fix";
+fix :: (a = '_; (a -> a) -> a);
 
-nat = fpc
+nat = fix
 (
 	'nat -> 
 	(
@@ -10,9 +11,19 @@ nat = fpc
 	)
 );
 
-factorial = fpc ('f -> ((nat.zero -> nat.successor nat.zero) | (('sx : nat.successor 'x) -> nat.multiply (sx) (f x))));
+
+asdf = (('x) -> (nat.zero));
+
+factorial = fix
+(
+	'f ->
+	(
+		((nat.zero) -> (nat.successor) (nat.zero))
+		| (('sx : (nat.successor) 'x) -> (nat.multiply) (sx) (f x))
+	)
+);
 
 map 'f [] = [];
-map 'f ['x, ... 'xs] = [f x, ... map f xs];
+map 'f ['x ... 'xs] = [f x ... map f xs];
 
 map

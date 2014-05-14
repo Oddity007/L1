@@ -10,8 +10,10 @@ local Rules = {
 	{type = "openexpression", "inlineconstraint", action = "return arguments[0];"},
 	{type = "openexpression", "chainedexpression", action = "return arguments[0];"},
 	
-	{type = "option", "chainedexpression", "Bar", "chainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},
+	--{type = "option", "chainedexpression", "Bar", "option", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},{type = "option", "chainedexpression", "Bar", "chainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},
+	{type = "option", "chainedexpression", "Bar", "chainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},{type = "option", "chainedexpression", "Bar", "chainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},
 	
+	--{type = "anonymousfunction", "chainedexpression_arguments", "Yield", "anonymousfunction", action = "return CreateAnonymousFunctionNode(parser, arguments[0], arguments[2]);"},
 	{type = "anonymousfunction", "chainedexpression_arguments", "Yield", "chainedexpression", action = "return CreateAnonymousFunctionNode(parser, arguments[0], arguments[2]);"},
 	
 	{type = "assignment", "Identifier", "Assign", "chainedexpression", "Terminal", "openexpression", action = "return CreateAssignmentNode(parser, arguments[0], NULL,  arguments[2], arguments[4], false);"},
@@ -22,23 +24,30 @@ local Rules = {
 	
 	{type = "constraint", "chainedexpression", "DoubleColon", "chainedexpression", "Terminal", "openexpression", action = "return CreateConstraintNode(parser, arguments[0], arguments[2], arguments[4]);"},
 	
+	--{type = "inlineconstraint", "chainedexpression", "SingleColon", "inlineconstraint", action = "return CreateInlineConstraintNode(parser, arguments[0], arguments[2]);"},
 	{type = "inlineconstraint", "chainedexpression", "SingleColon", "chainedexpression", action = "return CreateInlineConstraintNode(parser, arguments[0], arguments[2]);"},
 	
+	{type = "chainedexpression", "closedexpression", "chainedexpression_metaarguments", action = "return CreateMetacallNode(parser, arguments[0], arguments[1]);"},
 	{type = "chainedexpression", "closedexpression", "chainedexpression_arguments", action = "return CreateCallNode(parser, arguments[0], arguments[1]);"},
 	{type = "chainedexpression", "closedexpression", action = "return arguments[0];"},
 	
 	{type = "chainedexpression_arguments", "closedexpression", "chainedexpression_arguments", action = "return Cons(parser, arguments[0], arguments[1]);"},
 	{type = "chainedexpression_arguments", "closedexpression", action = "return Cons(parser, arguments[0], NULL);"},
 	
-	{type = "closedexpression", "SingleDot", "Identifier", action = "return CreateMetasymbolNode(parser, arguments[1]);"},
-	{type = "closedexpression", "SingleQuote", "Identifier", action = "return CreateAnyNode(parser, arguments[1]);"},
-	{type = "closedexpression", "Identifier", action = "return arguments[0];"},
-	{type = "closedexpression", "Natural", action = "return arguments[0];"},
-	{type = "closedexpression", "String", action = "return arguments[0];"},
-	{type = "closedexpression", "OpeningParenthesis", "openexpression", "ClosingParenthesis", action = "return arguments[1];"},
-	{type = "closedexpression", "OpeningSquareBracket", "ClosingSquareBracket", action = "return CreateListNode(parser, NULL, NULL);"},
-	{type = "closedexpression", "OpeningSquareBracket", "list_body", "TripleDot", "chainedexpression", "ClosingSquareBracket", action = "return CreateListNode(parser, arguments[1], arguments[3]);"},
-	{type = "closedexpression", "OpeningSquareBracket", "list_body", "ClosingSquareBracket", action = "return CreateListNode(parser, arguments[1], NULL);"},
+	{type = "chainedexpression_metaarguments", "SingleDot", "Identifier", "chainedexpression_metaarguments", action = "return Cons(parser, arguments[1], arguments[2]);"},
+	{type = "chainedexpression_metaarguments", "SingleDot", "Identifier", action = "return Cons(parser, arguments[1], NULL);"},
+	
+	--{type = "closedexpression", "unannotatedclosedexpression", "closedexpression_args", action = "return CreateMetacallNode(parser, arguments[0], arguments[1]);"},
+	{type = "closedexpression", "unannotatedclosedexpression", action = "return arguments[0];"},
+	
+	{type = "unannotatedclosedexpression", "SingleQuote", "Identifier", action = "return CreateAnyNode(parser, arguments[1]);"},
+	{type = "unannotatedclosedexpression", "Identifier", action = "return arguments[0];"},
+	{type = "unannotatedclosedexpression", "Natural", action = "return arguments[0];"},
+	{type = "unannotatedclosedexpression", "String", action = "return arguments[0];"},
+	{type = "unannotatedclosedexpression", "OpeningParenthesis", "openexpression", "ClosingParenthesis", action = "return arguments[1];"},
+	{type = "unannotatedclosedexpression", "OpeningSquareBracket", "ClosingSquareBracket", action = "return CreateListNode(parser, NULL, NULL);"},
+	{type = "unannotatedclosedexpression", "OpeningSquareBracket", "list_body", "TripleDot", "chainedexpression", "ClosingSquareBracket", action = "return CreateListNode(parser, arguments[1], arguments[3]);"},
+	{type = "unannotatedclosedexpression", "OpeningSquareBracket", "list_body", "ClosingSquareBracket", action = "return CreateListNode(parser, arguments[1], NULL);"},
 	
 	{type = "list_body", "chainedexpression", "Comma", "list_body", action = "return Cons(parser, arguments[0], arguments[2]);"},
 	{type = "list_body", "chainedexpression", "Comma", action = "return Cons(parser, arguments[0], NULL);"},

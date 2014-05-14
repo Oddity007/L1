@@ -25,7 +25,7 @@ enum L1ParserASTNodeType
 	L1ParserASTNodeTypeConstraint,
 	L1ParserASTNodeTypeAny,
 	L1ParserASTNodeTypeInlineConstraint,
-	L1ParserASTNodeTypeMetasymbol
+	L1ParserASTNodeTypeMetacall
 };
 
 typedef enum L1ParserASTNodeType L1ParserASTNodeType;
@@ -103,8 +103,9 @@ struct L1ParserASTNode
 		}inlineConstraint;
 		struct
 		{
-			const L1ParserASTNode* source;
-		}metasymbol;
+			const L1ParserASTNode* callee;
+			const L1ParserASTNodeLinkedList* arguments;
+		}metacall;
 	}data;
 };
 
