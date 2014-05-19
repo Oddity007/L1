@@ -32,6 +32,9 @@ enum L1LexerTokenType
 	L1LexerTokenTypeSingleQuote,
 	L1LexerTokenTypeDollar,
 	L1LexerTokenTypeBar,
+	L1LexerTokenTypeDeclare,
+	L1LexerTokenTypeConstruct,
+	L1LexerTokenTypeImport,
 	L1LexerTokenTypeDone,
 	L1LexerTokenTypeLast = L1LexerTokenTypeDone
 };

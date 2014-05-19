@@ -1,29 +1,19 @@
-fix = __import "fix";
-fix :: (a = '_; (a -> a) -> a);
-
-nat = fix
+__declare map;
+map f [] = [];
+id x = x;
+map f [x ... xs] = [f x ... map f xs];
+__declare any;
+any f [x ... xs] = (f x | any f xs);
+monad m = 
 (
-	'nat -> 
 	(
-		.zero = __construct [];
-		.successor ('x : nat) = __construct [x];
-		zero | successor 'x
-	)
+		a b ->
+		(
+			m.unit :: m a;
+			m.bind :: (($m $a) ($a -> m b) -> m b);
+			m
+		)
+	) :: (a b -> m);
+	m
 );
-
-
-asdf = (('x) -> (nat.zero));
-
-factorial = fix
-(
-	'f ->
-	(
-		((nat.zero) -> (nat.successor) (nat.zero))
-		| (('sx : (nat.successor) 'x) -> (nat.multiply) (sx) (f x))
-	)
-);
-
-map 'f [] = [];
-map 'f ['x ... 'xs] = [f x ... map f xs];
-
-map
+monad

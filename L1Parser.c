@@ -210,11 +210,11 @@ static L1ParserASTNode* CreateConstraintNode(L1Parser* parser, const L1ParserAST
 	return node;
 }
 
-static L1ParserASTNode* CreateAnyNode(L1Parser* parser, const L1ParserASTNode* source)
+static L1ParserASTNode* CreateEvalNode(L1Parser* parser, const L1ParserASTNode* source)
 {
 	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
-	node->type = L1ParserASTNodeTypeAny;
-	node->data.any.source = source;
+	node->type = L1ParserASTNodeTypeEval;
+	node->data.eval.source = source;
 	return node;
 }
 
@@ -233,6 +233,32 @@ static L1ParserASTNode* CreateMetacallNode(L1Parser* parser, const L1ParserASTNo
 	node->type = L1ParserASTNodeTypeMetacall;
 	node->data.metacall.callee = callee;
 	node->data.metacall.arguments = arguments;
+	return node;
+}
+
+static L1ParserASTNode* CreateDeclareNode(L1Parser* parser, const L1ParserASTNode* destination, const L1ParserASTNode* followingContext, bool isMeta)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeDeclare;
+	node->data.declare.destination = destination;
+	node->data.declare.followingContext = followingContext;
+	node->data.declare.isMeta = isMeta;
+	return node;
+}
+
+static L1ParserASTNode* CreateConstructNode(L1Parser* parser, const L1ParserASTNode* source)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeConstruct;
+	node->data.construct.source = source;
+	return node;
+}
+
+static L1ParserASTNode* CreateImportNode(L1Parser* parser, const L1ParserASTNode* source)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeImport;
+	node->data.import.source = source;
 	return node;
 }
 

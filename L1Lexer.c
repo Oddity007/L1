@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 struct L1Lexer
 {
@@ -248,6 +249,24 @@ void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
 		}
 	}
 	end:
+	if (*tokenType == L1LexerTokenTypeIdentifier)
+	{
+		if (self->bufferByteCount == strlen("__declare") and 0 == memcmp(self->bufferBytes, "__declare", self->bufferByteCount))
+		{
+			*tokenType = L1LexerTokenTypeDeclare;
+			ClearBuffer(self);
+		}
+		if (self->bufferByteCount == strlen("__construct") and 0 == memcmp(self->bufferBytes, "__construct", self->bufferByteCount))
+		{
+			*tokenType = L1LexerTokenTypeConstruct;
+			ClearBuffer(self);
+		}
+		if (self->bufferByteCount == strlen("__import") and 0 == memcmp(self->bufferBytes, "__import", self->bufferByteCount))
+		{
+			*tokenType = L1LexerTokenTypeImport;
+			ClearBuffer(self);
+		}
+	}
 	self->lastTokenType = *tokenType;
 }
 

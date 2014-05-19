@@ -23,9 +23,12 @@ enum L1ParserASTNodeType
 	L1ParserASTNodeTypeAnonymousFunction,
 	L1ParserASTNodeTypeOption,
 	L1ParserASTNodeTypeConstraint,
-	L1ParserASTNodeTypeAny,
+	L1ParserASTNodeTypeEval,
 	L1ParserASTNodeTypeInlineConstraint,
-	L1ParserASTNodeTypeMetacall
+	L1ParserASTNodeTypeMetacall,
+	L1ParserASTNodeTypeDeclare,
+	L1ParserASTNodeTypeConstruct,
+	L1ParserASTNodeTypeImport
 };
 
 typedef enum L1ParserASTNodeType L1ParserASTNodeType;
@@ -95,7 +98,7 @@ struct L1ParserASTNode
 		struct
 		{
 			const L1ParserASTNode* source;
-		}any;
+		}eval;
 		struct
 		{
 			const L1ParserASTNode* expression;
@@ -106,6 +109,20 @@ struct L1ParserASTNode
 			const L1ParserASTNode* callee;
 			const L1ParserASTNodeLinkedList* arguments;
 		}metacall;
+		struct
+		{
+			const L1ParserASTNode* destination;
+			bool isMeta;
+			const L1ParserASTNode* followingContext;
+		}declare;
+		struct
+		{
+			const L1ParserASTNode* source;
+		}construct;
+		struct
+		{
+			const L1ParserASTNode* source;
+		}import;
 	}data;
 };
 

@@ -1,8 +1,10 @@
-local Tokens = {"Natural", "Identifier", "String", "Assign", "OpeningParenthesis", "ClosingParenthesis", "OpeningSquareBracket", "ClosingSquareBracket", "Comma", "Terminal", "QuestionMark", "ExclaimationMark", "SingleColon", "DoubleColon", "Yield", "ConstructorYield", "SingleDot", "DoubleDot", "TripleDot", "SingleQuote", "Dollar", "Bar", "Done",}
+local Tokens = {"Natural", "Identifier", "String", "Assign", "OpeningParenthesis", "ClosingParenthesis", "OpeningSquareBracket", "ClosingSquareBracket", "Comma", "Terminal", "QuestionMark", "ExclaimationMark", "SingleColon", "DoubleColon", "Yield", "ConstructorYield", "SingleDot", "DoubleDot", "TripleDot", "SingleQuote", "Dollar", "Bar", "Declare", "Construct", "Import", "Done",}
 
 local Rules = {
 	{type = "program", "openexpression", "Done", action = "return arguments[0];"},
 	
+	{type = "openexpression", "Declare", "Identifier", "Terminal", "openexpression", action = "return CreateDeclareNode(parser, arguments[1], arguments[3], false);"},
+	{type = "openexpression", "Declare", "SingleDot", "Identifier", "Terminal", "openexpression", action = "return CreateDeclareNode(parser, arguments[2], arguments[4], true);"},
 	{type = "openexpression", "assignment", action = "return arguments[0];"},
 	{type = "openexpression", "constraint", action = "return arguments[0];"},
 	{type = "openexpression", "option", action = "return arguments[0];"},
@@ -13,6 +15,7 @@ local Rules = {
 	--{type = "option", "chainedexpression", "Bar", "option", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},{type = "option", "chainedexpression", "Bar", "chainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},
 	{type = "option", "chainedexpression", "Bar", "chainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},{type = "option", "chainedexpression", "Bar", "chainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},
 	
+	{type = "anonymousfunction", "Yield", "chainedexpression", action = "return CreateAnonymousFunctionNode(parser, NULL, arguments[1]);"},
 	--{type = "anonymousfunction", "chainedexpression_arguments", "Yield", "anonymousfunction", action = "return CreateAnonymousFunctionNode(parser, arguments[0], arguments[2]);"},
 	{type = "anonymousfunction", "chainedexpression_arguments", "Yield", "chainedexpression", action = "return CreateAnonymousFunctionNode(parser, arguments[0], arguments[2]);"},
 	
@@ -27,6 +30,8 @@ local Rules = {
 	--{type = "inlineconstraint", "chainedexpression", "SingleColon", "inlineconstraint", action = "return CreateInlineConstraintNode(parser, arguments[0], arguments[2]);"},
 	{type = "inlineconstraint", "chainedexpression", "SingleColon", "chainedexpression", action = "return CreateInlineConstraintNode(parser, arguments[0], arguments[2]);"},
 	
+	{type = "chainedexpression", "Construct", "chainedexpression", action = "return CreateConstructNode(parser, arguments[1]);"},
+	{type = "chainedexpression", "Import", "String", action = "return CreateImportNode(parser, arguments[1]);"},
 	{type = "chainedexpression", "closedexpression", "chainedexpression_metaarguments", action = "return CreateMetacallNode(parser, arguments[0], arguments[1]);"},
 	{type = "chainedexpression", "closedexpression", "chainedexpression_arguments", action = "return CreateCallNode(parser, arguments[0], arguments[1]);"},
 	{type = "chainedexpression", "closedexpression", action = "return arguments[0];"},
@@ -40,7 +45,7 @@ local Rules = {
 	--{type = "closedexpression", "unannotatedclosedexpression", "closedexpression_args", action = "return CreateMetacallNode(parser, arguments[0], arguments[1]);"},
 	{type = "closedexpression", "unannotatedclosedexpression", action = "return arguments[0];"},
 	
-	{type = "unannotatedclosedexpression", "SingleQuote", "Identifier", action = "return CreateAnyNode(parser, arguments[1]);"},
+	{type = "unannotatedclosedexpression", "Dollar", "Identifier", action = "return CreateEvalNode(parser, arguments[1]);"},
 	{type = "unannotatedclosedexpression", "Identifier", action = "return arguments[0];"},
 	{type = "unannotatedclosedexpression", "Natural", action = "return arguments[0];"},
 	{type = "unannotatedclosedexpression", "String", action = "return arguments[0];"},

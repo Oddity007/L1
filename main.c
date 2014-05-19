@@ -128,11 +128,11 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 			PrintASTNodeJSON(outputFile, node->data.constraint.followingContext);
 			fprintf(outputFile, "}");
 			break;
-		case L1ParserASTNodeTypeAny:
+		case L1ParserASTNodeTypeEval:
 			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"any\", ");
+			fprintf(outputFile, "\"type\" : \"eval\", ");
 			fprintf(outputFile, "\"source\" : ");
-			PrintASTNodeJSON(outputFile, node->data.any.source);
+			PrintASTNodeJSON(outputFile, node->data.eval.source);
 			fprintf(outputFile, "}");
 			break;
 		case L1ParserASTNodeTypeInlineConstraint:
@@ -156,6 +156,30 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 				if (arguments->tail) fprintf(outputFile, ", ");
 			}
 			fprintf(outputFile, "]");
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeDeclare:
+			fprintf(outputFile, "{");
+			fprintf(outputFile, "\"type\" : \"declare\"");
+			fprintf(outputFile, ", \"destination\" : ");
+			PrintASTNodeJSON(outputFile, node->data.declare.destination);
+			fprintf(outputFile, ", \"followingContext\" : ");
+			PrintASTNodeJSON(outputFile, node->data.declare.followingContext);
+			fprintf(outputFile, ", \"isMeta\" : %s", node->data.declare.isMeta ? "true" : "false");
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeConstruct:
+			fprintf(outputFile, "{");
+			fprintf(outputFile, "\"type\" : \"construct\", ");
+			fprintf(outputFile, "\"source\" : ");
+			PrintASTNodeJSON(outputFile, node->data.construct.source);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeImport:
+			fprintf(outputFile, "{");
+			fprintf(outputFile, "\"type\" : \"import\", ");
+			fprintf(outputFile, "\"source\" : ");
+			PrintASTNodeJSON(outputFile, node->data.import.source);
 			fprintf(outputFile, "}");
 			break;
 		default:

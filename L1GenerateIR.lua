@@ -16,227 +16,273 @@ local function hexToString(h)
 	return table.concat(t, "")
 end
 
+local function intToHex(i)
+	return nil
+end
+
+local function MatchPattern(state, node, sourceid)
+	assert(node)
+	assert(sourceid)
+	if node.type == "natural" then
+		state:output {type = "constrain", expression = state:gen(node), constraint = sourceid}
+	elseif node.type == "string" then
+		state:output {type = "constrain", expression = state:gen(node), constraint = sourceid}
+	elseif node.type == "identifier" then
+		assert(node.value)
+		state:bind(node.value, sourceid)
+	elseif node.type == "eval" then
+		assert(node.source)
+		state:output {type = "constrain", expression = state:gen(node.source), constraint = sourceid}
+	elseif node.type == "call" then
+		local callee = state:genid()
+		MatchPattern(state, node.callee, callee)
+		for i = 1, #node.arguments do
+			local result = state:genid()
+			local argument = state:genid()
+			MatchPattern(state, node.arguments[i], argument)
+			state:output {type = "pattern_match_call", destination = result, callee = callee, argument = argument}
+			callee = result
+		end
+		state:output {type = "constrain", expression = callee, constraint = sourceid}
+	elseif node.type == "list" then
+		local tail = sourceid
+		for i = 1, #node.elements do
+			local head = state:genid()
+			local newtail = state:genid()
+			state:output {type = "list_head", destination = head, source = tail}
+			state:output {type = "list_tail", destination = newtail, source = tail}
+			MatchPattern(state, node.elements[i], head)
+			tail = newtail
+		end
+		
+		if node.sublist.type == "undefined" then
+			local emptylistid = state:genid()
+			state:output {type = "list_empty", destination = emptylistid}
+			state:output {type = "constrain", expression = tail, constraint = emptylistid}
+		else
+			MatchPattern(state, node.sublist, tail)
+		end
+	elseif node.type == "anonymousFunction" then
+		state:output {type = "constrain", expression = sourceid, constraint = state:gen(node)}
+	else
+		error("NYI")
+	end
+end
+
 local handlers = {}
 
 function handlers.natural(state, node)
-	return {"string", node.value}
+	local destination = state:genid()
+	state:output {type = "natural", destination = destination, data = node.value}
+	return destination
 end
 
 function handlers.string(state, node)
-	return {"string", node.value}
+	local destination = state:genid()
+	state:output {type = "string", destination = destination, data = node.value}
+	return destination
 end
 
 function handlers.identifier(state, node, inAssignContext)
-	if node.value == "5F5F636F6E737472756374" then
-		--"__construct"
-		local id = state:genid()
-		local arg = state:genany(true)
-		return {"closure", arg, {"construct", arg, id}}
-	elseif node.value == "5F5F696D706F7274" then
-		--"__import"
-		local arg = state:genany(true)
-		return {"closure", arg, {"import", arg}}
-	end
-	
-	local value = state:lookupBinding(node.value)
-	if value then return value
-	else error("Access to undefined variable: " .. node.value) end
+	local dst = state:lookupBinding(node.value)
+	if not dst then error("Undefined variable access to " .. node.value) end
+	assert(dst)
+	return dst
 end
 
-function handlers.call(state, node)
-	assert(node.type == "call")
-	assert(node.callee)
-	assert(node.arguments)
-	local callee = state:gen(node.callee)
+function handlers.call(state, node, inAssignContext)
+	local callee = state:gen(node.callee, inAssignContext)
 	for i = 1, #node.arguments do
-		callee = {"call", callee, state:gen(node.arguments[i])}
+		local argument = state:gen(node.arguments[i], inAssignContext)
+		local result = state:genid()
+		state:output {type = "call", destination = result, callee = callee, argument = argument}
+		callee = result
 	end
 	return callee
 end
 
-function handlers.metacall(state, node)
-	assert(node.callee)
-	assert(node.arguments)
-	local callee = state:gen(node.callee)
+function handlers.metacall(state, node, inAssignContext)
+	local callee = state:gen(node.callee, inAssignContext)
 	for i = 1, #node.arguments do
-		local argument = node.arguments[i]
-		assert(argument.type == "identifier")
-		callee = {"metacall", callee, argument.value}
+		local result = state:genid()
+		assert(node.arguments[i].type == "identifier")
+		state:output {type = "metacall", destination = result, callee = callee, key = node.arguments[i].value}
+		callee = result
 	end
 	return callee
 end
 
-function handlers.assignment(state, node)
-	state:pushBindingBlock()
-	assert(node.destination.type == "identifier")
-	assert(node.destination.value)
-	
-	local source = nil
-	if node.arguments then
-		source = state:gen({type = "anonymousFunction", arguments = node.arguments, source = node.source})
-	else
-		source = state:gen(node.source)
-	end
-	
-	state:bind(node.destination.value, source)
-	
-	local rest = state:gen(node.followingContext)
-	
-	if node.isMeta then
-		rest = {"metabind", rest, node.destination.value, source}
-	end
-	
-	state:popBindingBlock()
-	return rest
+function handlers.constraint(state, node, inAssignContext)
+	local exp = state:gen(node.expression, inAssignContext)
+	local cons = state:gen(node.constraint, inAssignContext)
+	local rst = state:gen(node.followingContext, inAssignContext)
+	state:output {type = "constrain", expression = exp, constraint = cons}
+	return rst
 end
 
-function handlers.list(state, node)
-	local elements = {}
-	for i = 1, #node.elements do
-		elements[i] = state:gen(node.elements[i])
-	end
-	
-	local list = nil
-	
-	if node.sublist.type == "undefined" then
-		list = {"list_empty"}
-	else
-		list = state:gen(node.sublist)
-	end
-	
-	for i = #node.elements, 1, -1 do
-		list = {"list_cons", state:gen(node.elements[i]), list}
-	end
-	
-	return list
+
+function handlers.inlineConstraint(state, node, inAssignContext)
+	local exp = state:gen(node.expression, inAssignContext)
+	local cons = state:gen(node.constraint, inAssignContext)
+	state:output {type = "constrain", expression = exp, construction = cons}
+	return exp
 end
 
-function handlers.anonymousFunction(state, node)
-	assert(node.type == "anonymousFunction")
-	assert(node.arguments)
-	
+function handlers.option(state, node, inAssignContext)
+	local a = state:gen(node.construction, false)
+	local b = state:gen(node.defaultConstruction, false)
+	local dst = state:genid()
+	state:output {type = "option", destination = dst, construction = a, defaultConstruction = b}
+	return dst
+end
+
+function handlers.anonymousFunction(state, node, inAssignContext)
 	state:pushBindingBlock()
 	
-	local argBindings = {}
-	for i = 1, #node.arguments do
-		argBindings[i] = state:gen(node.arguments[i])
-	end
+	local result = nil
 	
-	local result = state:gen(node.source)
-	
-	for i = #node.arguments, 1, -1 do
-		result = {"closure", argBindings[i], result}
+	if 0 == #node.arguments then
+		local dst = state:genid()
+		result = state:gen(node.source)
+		state:output {type = "delay", destination = dst, result = result}
+		return dst
+	else
+		local argBindings = {}
+		for i = 1, #node.arguments do
+			argBindings[i] = state:genid()
+			assert(node.arguments[i])
+			MatchPattern(state, node.arguments[i], argBindings[i])
+		end
+		
+		result = state:gen(node.source)
+		
+		for i = #node.arguments, 1, -1 do
+			local dst = state:genid()
+			state:output {type = "closure", destination = dst, argument = argBindings[i], result = result}
+			result = dst
+		end
 	end
 	
 	state:popBindingBlock()
 	return result
 end
 
-function handlers.option(state, node)
-	assert(node.type == "option")
-	assert(node.construction)
-	assert(node.defaultConstruction)
+function handlers.assignment(state, node, inAssignContext)
+	assert(not inAssignContext)
 	state:pushBindingBlock()
-	local a = state:gen(node.construction)
+	local src = nil
+	if node.arguments and 0 ~= #node.arguments then
+		src = state:gen({type = "anonymousFunction", arguments = node.arguments, source = node.source}, false)
+	else
+		src = state:gen(node.source, false)
+	end
 	state:popBindingBlock()
+	
 	state:pushBindingBlock()
-	local b = state:gen(node.defaultConstruction)
+	MatchPattern(state, node.destination, src)
+	--assert(node.destination.type == "identifier")
+	--state:bind(node.destination.value, src)
+	local rst = state:gen(node.followingContext, false)
 	state:popBindingBlock()
-	return {type = "option", a, b}
-end
-
-function handlers.inlineConstraint(state, node)
-	assert(node.expression)
-	assert(node.constraint)
-	local exp = state:gen(node.expression)
-	local cons = state:gen(node.constraint)
-	return {"constrain", exp, cons}
-end
-
-function handlers.constraint(state, node)
-	assert(node.expression)
-	assert(node.constraint)
-	assert(node.followingContext)
 	
-	local exp = state:gen(node.expression)
-	local cons = state:gen(node.constraint)
-	local src = state:gen(node.followingContext)
+	if node.isMeta then
+		assert(node.destination.type == "identifier")
+		local dst = state:genid()
+		state:output {type = "metabind", destination = dst, expression = rst, key = node.destination.value, value = src}
+		rst = dst
+	end
 	
-	return {"call", {"closure", cons, src}, exp}
+	return rst
 end
 
-function handlers.undefined(state, node)
+function handlers.undefined(state, node, inAssignContext)
 	local dst = state:genid()
-	return {"undefined"}
+	state:output {type = "undefined", destination = dst}
+	return dst
 end
 
-function handlers.any(state, node)
-	assert(node.source)
-	assert(node.source.type == "identifier")
-	assert(node.source.value)
-	local value = state:genany(true)
-	state:bind(node.source.value, value)
-	return value
+function handlers.declare(state, node, inAssignContext)
+	assert(node.destination.type == "identifier")
+	
+	state:pushBindingBlock()
+	local dst = state:genid()
+	state:output {type = "undefined", destination = dst}
+	state:bind(node.destination.value, dst)
+	local rst = state:gen(node.followingContext)
+	state:popBindingBlock()
+	
+	if node.isMeta then
+		local newdst = state:genid()
+		state:output {type = "metabind", destination = newdst, expression = rst, key = node.destination.value, value = dst}
+		rst = newdst
+	end
+	return rst
 end
 
-function handlers.metasymbol(state, node)
-	error("Invalid metasymbol occurence")
+function handlers.eval(state, node, inAssignContext)
+	error("Should not be reached")
+	assert(inAssignContext)
+	assert(node.expression.type == "identifier")
+	return state:gen(node.expression, not inAssignContext)
+end
+
+function handlers.list(state, node, inAssignContext)
+	local rst = nil
+	if node.sublist.type == "undefined" then
+		rst = state:genid()
+		state:output {type = "list_empty", destination = rst}
+	else
+		rst = state:gen(node.sublist, inAssignContext)
+	end
+	
+	for i = 1, #node.elements do
+		local dst = state:genid()
+		local val = state:gen(node.elements[i], inAssignContext)
+		state:output {type = "list_cons", destination = dst, head = val, tail = rst}
+		rst = dst
+	end
+	return rst
 end
 
 local function Generate(rootNode)
-	local state = {id = 0, bindingDepth = 0}
+	local state = {ops = {}, id = 0}
+	function state:output(op)
+		self.ops[#self.ops + 1] = op
+	end
 	function state:genid()
 		local id = self.id
 		self.id = id + 1
 		return id
 	end
-	function state:genany(tagged)
-		local id = nil
-		if tagged then
-			id = state:genid()
-		end
-		return {"any", id}
-	end
-	function state:gen(node)
-		--print(node.type)
+	function state:gen(node, inAssignContext)
 		return handlers[node.type](state, node)
 	end
 	function state:pushBindingBlock()
-		self.bindingDepth = self.bindingDepth + 1
 		self.bindingBlock = {bindings = {}, previous = self.bindingBlock}
 	end
 	function state:popBindingBlock()
-		self.bindingDepth = self.bindingDepth - 1
-		assert(self.bindingDepth >= 0)
 		assert(self.bindingBlock)
-		--[[for k, _ in pairs(self.bindingBlock.bindings) do
-			print("Discarding " .. k)
-		end]]
 		self.bindingBlock = self.bindingBlock.previous
 	end
 	function state:bind(identifier, id)
 		assert(id)
 		assert(self.bindingBlock)
-		--assert(not self.bindingBlock.bindings[identifier])
+		assert(not self.bindingBlock.bindings[identifier])
 		self.bindingBlock.bindings[identifier] = id
-		--print("Binding " .. identifier)
 	end
 	function state:lookupBinding(identifier)
 		local b = self.bindingBlock
-		--print("Looking for " .. identifier)
 		while b do
 			local id = b.bindings[identifier]
-			--[[for k, _ in pairs(b.bindings) do
-				print("Found " .. k)
-			end]]
 			if id then return id end
 			b = b.previous
 		end
-		--error("Problem")
+		error("Access to undefined variable: " .. hexToString(identifier))
 		return nil
 	end
 	local destination = state:gen(rootNode)
-	return destination
+	state:output {type = "export", name = "main", source = destination}
+	return state.ops
 end
 
 return Generate
