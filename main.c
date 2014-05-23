@@ -182,6 +182,13 @@ static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
 			PrintASTNodeJSON(outputFile, node->data.import.source);
 			fprintf(outputFile, "}");
 			break;
+		case L1ParserASTNodeTypeAny:
+			fprintf(outputFile, "{");
+			fprintf(outputFile, "\"type\" : \"any\", ");
+			fprintf(outputFile, "\"source\" : ");
+			PrintASTNodeJSON(outputFile, node->data.any.source);
+			fprintf(outputFile, "}");
+			break;
 		default:
 			abort();
 			break;

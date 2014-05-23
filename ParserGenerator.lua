@@ -15,6 +15,7 @@ local Rules = {
 	--{type = "option", "chainedexpression", "Bar", "option", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},{type = "option", "chainedexpression", "Bar", "chainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},
 	{type = "option", "chainedexpression", "Bar", "chainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},{type = "option", "chainedexpression", "Bar", "chainedexpression", action = "return CreateOptionNode(parser, arguments[0], arguments[2]);"},
 	
+	--{type = "anonymousfunction", "Yield", "anonymousfunction", action = "return CreateAnonymousFunctionNode(parser, NULL, arguments[1]);"},
 	{type = "anonymousfunction", "Yield", "chainedexpression", action = "return CreateAnonymousFunctionNode(parser, NULL, arguments[1]);"},
 	--{type = "anonymousfunction", "chainedexpression_arguments", "Yield", "anonymousfunction", action = "return CreateAnonymousFunctionNode(parser, arguments[0], arguments[2]);"},
 	{type = "anonymousfunction", "chainedexpression_arguments", "Yield", "chainedexpression", action = "return CreateAnonymousFunctionNode(parser, arguments[0], arguments[2]);"},
@@ -27,7 +28,7 @@ local Rules = {
 	
 	{type = "constraint", "chainedexpression", "DoubleColon", "chainedexpression", "Terminal", "openexpression", action = "return CreateConstraintNode(parser, arguments[0], arguments[2], arguments[4]);"},
 	
-	--{type = "inlineconstraint", "chainedexpression", "SingleColon", "inlineconstraint", action = "return CreateInlineConstraintNode(parser, arguments[0], arguments[2]);"},
+	{type = "inlineconstraint", "chainedexpression", "SingleColon", "inlineconstraint", action = "return CreateInlineConstraintNode(parser, arguments[0], arguments[2]);"},
 	{type = "inlineconstraint", "chainedexpression", "SingleColon", "chainedexpression", action = "return CreateInlineConstraintNode(parser, arguments[0], arguments[2]);"},
 	
 	{type = "chainedexpression", "Construct", "chainedexpression", action = "return CreateConstructNode(parser, arguments[1]);"},
@@ -45,7 +46,8 @@ local Rules = {
 	--{type = "closedexpression", "unannotatedclosedexpression", "closedexpression_args", action = "return CreateMetacallNode(parser, arguments[0], arguments[1]);"},
 	{type = "closedexpression", "unannotatedclosedexpression", action = "return arguments[0];"},
 	
-	{type = "unannotatedclosedexpression", "Dollar", "Identifier", action = "return CreateEvalNode(parser, arguments[1]);"},
+	{type = "unannotatedclosedexpression", "SingleQuote", "Identifier", action = "return CreateAnyNode(parser, arguments[1]);"},
+	{type = "unannotatedclosedexpression", "Dollar", "closedexpression", action = "return CreateEvalNode(parser, arguments[1]);"},
 	{type = "unannotatedclosedexpression", "Identifier", action = "return arguments[0];"},
 	{type = "unannotatedclosedexpression", "Natural", action = "return arguments[0];"},
 	{type = "unannotatedclosedexpression", "String", action = "return arguments[0];"},

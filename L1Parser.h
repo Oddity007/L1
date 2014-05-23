@@ -28,7 +28,8 @@ enum L1ParserASTNodeType
 	L1ParserASTNodeTypeMetacall,
 	L1ParserASTNodeTypeDeclare,
 	L1ParserASTNodeTypeConstruct,
-	L1ParserASTNodeTypeImport
+	L1ParserASTNodeTypeImport,
+	L1ParserASTNodeTypeAny,
 };
 
 typedef enum L1ParserASTNodeType L1ParserASTNodeType;
@@ -123,6 +124,10 @@ struct L1ParserASTNode
 		{
 			const L1ParserASTNode* source;
 		}import;
+		struct
+		{
+			const L1ParserASTNode* source;
+		}any;
 	}data;
 };
 

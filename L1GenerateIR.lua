@@ -20,21 +20,42 @@ local function intToHex(i)
 	return nil
 end
 
-local function MatchPattern(state, node, sourceid)
+local function MatchPattern(state, node, sourceid, isDestinationOfAssignment)
 	assert(node)
 	assert(sourceid)
 	if node.type == "natural" then
-		state:output {type = "constrain", expression = state:gen(node), constraint = sourceid}
+		local exp = state:gen(node)
+		local dst = state:genid()
+		state:output {type = "constrain", destination = dst, expression = exp, constraint = sourceid}
+		return dst
 	elseif node.type == "string" then
-		state:output {type = "constrain", expression = state:gen(node), constraint = sourceid}
+		local exp = state:gen(node)
+		local dst = state:genid()
+		state:output {type = "constrain", destination = dst, expression = exp, constraint = sourceid}
+		return dst
 	elseif node.type == "identifier" then
 		assert(node.value)
+		if isDestinationOfAssignment then
+			local dst, isForwardDeclared = state:lookupBinding(node.value)
+			if isForwardDeclared then
+				state:overload(dst, sourceid)
+				return dst
+			end
+		end
 		state:bind(node.value, sourceid)
+		return sourceid
 	elseif node.type == "eval" then
 		assert(node.source)
-		state:output {type = "constrain", expression = state:gen(node.source), constraint = sourceid}
+		local exp = state:gen(node.source)
+		local dst = state:genid()
+		state:output {type = "constrain", destination = dst, expression = exp, constraint = sourceid}
+		return dst
 	elseif node.type == "call" then
-		local callee = state:genid()
+		local exp = state:gen(node)
+		local dst = state:genid()
+		state:output {type = "constrain", destination = dst, expression = exp, constraint = sourceid}
+		return dst
+		--[[local callee = state:genid()
 		MatchPattern(state, node.callee, callee)
 		for i = 1, #node.arguments do
 			local result = state:genid()
@@ -43,9 +64,15 @@ local function MatchPattern(state, node, sourceid)
 			state:output {type = "pattern_match_call", destination = result, callee = callee, argument = argument}
 			callee = result
 		end
-		state:output {type = "constrain", expression = callee, constraint = sourceid}
+		local dst = state:genid()
+		state:output {type = "constrain", destination = dst, expression = callee, constraint = sourceid}
+		return dst]]
 	elseif node.type == "list" then
-		local tail = sourceid
+		local exp = state:gen(node)
+		local dst = state:genid()
+		state:output {type = "constrain", destination = dst, expression = exp, constraint = sourceid}
+		return dst
+		--[[local tail = sourceid
 		for i = 1, #node.elements do
 			local head = state:genid()
 			local newtail = state:genid()
@@ -58,12 +85,23 @@ local function MatchPattern(state, node, sourceid)
 		if node.sublist.type == "undefined" then
 			local emptylistid = state:genid()
 			state:output {type = "list_empty", destination = emptylistid}
-			state:output {type = "constrain", expression = tail, constraint = emptylistid}
+			local dst = state:genid()
+			state:output {type = "constrain", destination = dst, expression = tail, constraint = emptylistid}
 		else
 			MatchPattern(state, node.sublist, tail)
 		end
+		return sourceid]]
 	elseif node.type == "anonymousFunction" then
-		state:output {type = "constrain", expression = sourceid, constraint = state:gen(node)}
+		local cons = state:gen(node)
+		local dst = state:genid()
+		state:output {type = "constrain", destination = dst, expression = sourceid, constraint = cons}
+		return dst
+	elseif node.type == "inlineConstraint" then
+		local exp = MatchPattern(state, node.expression, sourceid)
+		local cons = MatchPattern(state, node.constraint, sourceid)
+		local dst = state:genid()
+		state:output {type = "constrain", destination = dst, expression = exp, construction = cons}
+		return dst
 	else
 		error("NYI")
 	end
@@ -84,7 +122,7 @@ function handlers.string(state, node)
 end
 
 function handlers.identifier(state, node, inAssignContext)
-	local dst = state:lookupBinding(node.value)
+	local dst, isForwardDeclared = state:lookupBinding(node.value)
 	if not dst then error("Undefined variable access to " .. node.value) end
 	assert(dst)
 	return dst
@@ -116,16 +154,17 @@ function handlers.constraint(state, node, inAssignContext)
 	local exp = state:gen(node.expression, inAssignContext)
 	local cons = state:gen(node.constraint, inAssignContext)
 	local rst = state:gen(node.followingContext, inAssignContext)
-	state:output {type = "constrain", expression = exp, constraint = cons}
+	local dst = state:genid()
+	state:output {type = "constrain", destination = dst, expression = exp, constraint = cons}
 	return rst
 end
-
 
 function handlers.inlineConstraint(state, node, inAssignContext)
 	local exp = state:gen(node.expression, inAssignContext)
 	local cons = state:gen(node.constraint, inAssignContext)
-	state:output {type = "constrain", expression = exp, construction = cons}
-	return exp
+	local dst = state:genid()
+	state:output {type = "constrain", destination = dst, expression = exp, construction = cons}
+	return dst
 end
 
 function handlers.option(state, node, inAssignContext)
@@ -206,8 +245,8 @@ function handlers.declare(state, node, inAssignContext)
 	
 	state:pushBindingBlock()
 	local dst = state:genid()
-	state:output {type = "undefined", destination = dst}
-	state:bind(node.destination.value, dst)
+	state:output {type = "declare", destination = dst}
+	state:bind(node.destination.value, dst, true)
 	local rst = state:gen(node.followingContext)
 	state:popBindingBlock()
 	
@@ -220,10 +259,20 @@ function handlers.declare(state, node, inAssignContext)
 end
 
 function handlers.eval(state, node, inAssignContext)
-	error("Should not be reached")
-	assert(inAssignContext)
-	assert(node.expression.type == "identifier")
-	return state:gen(node.expression, not inAssignContext)
+	error("Evals found in non-assignment context")
+end
+
+function handlers.any(state, node)
+	local dst = state:genid()
+	state:output {type = "any", destination = dst}
+	state:bind(node.source.value, dst)
+	return dst
+end
+
+function handlers.construct(state, node)
+	local dst = state:genid()
+	state:output {type = "construct", destination = dst, source = state:gen(node.source)}
+	return dst
 end
 
 function handlers.list(state, node, inAssignContext)
@@ -245,7 +294,7 @@ function handlers.list(state, node, inAssignContext)
 end
 
 local function Generate(rootNode)
-	local state = {ops = {}, id = 0}
+	local state = {ops = {}, id = 0, overloads = {}}
 	function state:output(op)
 		self.ops[#self.ops + 1] = op
 	end
@@ -255,32 +304,51 @@ local function Generate(rootNode)
 		return id
 	end
 	function state:gen(node, inAssignContext)
+		print(node.type)
 		return handlers[node.type](state, node)
 	end
 	function state:pushBindingBlock()
-		self.bindingBlock = {bindings = {}, previous = self.bindingBlock}
+		self.bindingBlock = {bindings = {}, previous = self.bindingBlock, forwardDeclarations = {}}
 	end
 	function state:popBindingBlock()
 		assert(self.bindingBlock)
 		self.bindingBlock = self.bindingBlock.previous
 	end
-	function state:bind(identifier, id)
+	function state:bind(identifier, id, isForwardDeclared)
 		assert(id)
 		assert(self.bindingBlock)
 		assert(not self.bindingBlock.bindings[identifier])
 		self.bindingBlock.bindings[identifier] = id
+		self.bindingBlock.forwardDeclarations[identifier] = isForwardDeclared
 	end
 	function state:lookupBinding(identifier)
 		local b = self.bindingBlock
 		while b do
 			local id = b.bindings[identifier]
-			if id then return id end
+			if id then return id, b.forwardDeclarations[identifier] end
 			b = b.previous
 		end
 		error("Access to undefined variable: " .. hexToString(identifier))
-		return nil
+	end
+	function state:overload(dst, src)
+		local overloads = self.overloads[dst]
+		if not overloads then overloads = {} end
+		overloads[#overloads + 1] = src
+		self.overloads[dst] = overloads
 	end
 	local destination = state:gen(rootNode)
+	for dst, overloads in pairs(state.overloads) do
+		local previous = state:genid()
+		state:output {type = "undefined", destination = previous}
+		
+		for _, overload in pairs(overloads) do
+			local new = state:genid()
+			state:output {type = "option", destination = new, construction = overload, defaultConstruction = previous}
+			previous = new
+		end
+		
+		state:output {type = "let", destination = dst, source = previous}
+	end
 	state:output {type = "export", name = "main", source = destination}
 	return state.ops
 end

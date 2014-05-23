@@ -17,6 +17,13 @@ runparsetests:
 	./build/l1c -it "x y -> (z w -> x)" --json
 	./build/l1c -it "a [] = []; a" --json
 	./build/l1c -it "a x y = (.b z w = x; b); a" --json
+	#./build/l1c -it "-> -> a"
+	./build/l1c -it "a -> (-> a)"
+	#./build/l1c -it "-> a -> a"
+	#./build/l1c -it "a : b : c"
+	#./build/l1c -it "(a : b : c a) -> a"
+	#./build/l1c -it "a | b | c"
+	#./build/l1c -it "a b | c | d f e a | g"
 	./build/l1c -i sample.l1 --json
 
 runirgentests:

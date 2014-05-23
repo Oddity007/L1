@@ -262,6 +262,14 @@ static L1ParserASTNode* CreateImportNode(L1Parser* parser, const L1ParserASTNode
 	return node;
 }
 
+static L1ParserASTNode* CreateAnyNode(L1Parser* parser, const L1ParserASTNode* source)
+{
+	L1ParserASTNode* node = L1RegionAllocate(parser->region, sizeof(L1ParserASTNode));
+	node->type = L1ParserASTNodeTypeAny;
+	node->data.any.source = source;
+	return node;
+}
+
 #include "L1ParserGeneratedPortion"
 
 L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount)
