@@ -1,47 +1,34 @@
 #ifndef L1Parser_h
 #define L1Parser_h
 
-#include <stdint.h>
+#include "L1Array.h"
 #include "L1Lexer.h"
-#include <stdbool.h>
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-typedef struct L1Parser L1Parser;
 
 enum L1ParserASTNodeType
 {
-	L1ParserASTNodeTypeNatural,
-	L1ParserASTNodeTypeString,
 	L1ParserASTNodeTypeIdentifier,
+	L1ParserASTNodeTypeString,
+	L1ParserASTNodeTypeNatural,
+	
+	L1ParserASTNodeTypeEvaluateArgument,
+	L1ParserASTNodeTypeHideArgument,
+	
+	L1ParserASTNodeTypeOverload,
+	
+	L1ParserASTNodeTypeAssign,
+	L1ParserASTNodeTypeDefine,
+	L1ParserASTNodeTypeAnnotate,
+	
+	L1ParserASTNodeTypeLambda,
+	L1ParserASTNodeTypePi,
+	
+	L1ParserASTNodeTypeUnderscore,
+	
 	L1ParserASTNodeTypeCall,
-	L1ParserASTNodeTypeAssignment,
-	L1ParserASTNodeTypeList,
-	L1ParserASTNodeTypeAnonymousFunction,
-	L1ParserASTNodeTypeOption,
-	L1ParserASTNodeTypeConstraint,
-	L1ParserASTNodeTypeEval,
-	L1ParserASTNodeTypeInlineConstraint,
-	L1ParserASTNodeTypeMetacall,
-	L1ParserASTNodeTypeDeclare,
-	L1ParserASTNodeTypeConstruct,
-	L1ParserASTNodeTypeImport,
-	L1ParserASTNodeTypeAny,
 };
-
 typedef enum L1ParserASTNodeType L1ParserASTNodeType;
+
 typedef struct L1ParserASTNode L1ParserASTNode;
-typedef struct L1ParserASTNodeLinkedList L1ParserASTNodeLinkedList;
-
-struct L1ParserASTNodeLinkedList
-{
-	const L1ParserASTNode* head;
-	const L1ParserASTNodeLinkedList* tail;
-};
-
 struct L1ParserASTNode
 {
 	L1ParserASTNodeType type;
@@ -49,112 +36,95 @@ struct L1ParserASTNode
 	{
 		struct
 		{
-			const uint8_t* bytes;
-			uint64_t byteCount;
-		}natural;
-		struct
-		{
-			const uint8_t* bytes;
-			uint64_t byteCount;
-		}string;
-		struct
-		{
-			const uint8_t* bytes;
-			uint64_t byteCount;
+			size_t tokenIndex;
 		}identifier;
 		struct
 		{
-			const L1ParserASTNode* callee;
-			const L1ParserASTNodeLinkedList* arguments;
+			size_t tokenIndex;
+		}string;
+		struct
+		{
+			size_t tokenIndex;
+		}natural;
+		struct
+		{
+			size_t expression;
+		}evaluateArgument;
+		struct
+		{
+			size_t expression;
+		}hideArgument;
+		struct
+		{
+			size_t first;
+			size_t second;
+		}overload;
+		struct
+		{
+			size_t destination;
+			size_t source;
+			size_t followingContext;
+		}assign;
+		struct
+		{
+			size_t destination;
+			size_t source;
+			size_t followingContext;
+		}define;
+		struct
+		{
+			size_t value;
+			size_t type;
+		}annotate;
+		struct
+		{
+			size_t argument;
+			size_t result;
+		}lambda;
+		struct
+		{
+			size_t argument;
+			size_t result;
+		}pi;
+		struct
+		{
+			size_t callee;
+			size_t argument;
 		}call;
-		struct
-		{
-			const L1ParserASTNode* destination;
-			const L1ParserASTNodeLinkedList* arguments;
-			const L1ParserASTNode* source;
-			const L1ParserASTNode* followingContext;
-			bool isMeta;
-		}assignment;
-		struct
-		{
-			const L1ParserASTNodeLinkedList* elements;
-			const L1ParserASTNode* sublist;
-		}list;
-		struct
-		{
-			const L1ParserASTNodeLinkedList* arguments;
-			const L1ParserASTNode* source;
-		}anonymousFunction;
-		struct
-		{
-			const L1ParserASTNode* construction;
-			const L1ParserASTNode* defaultConstruction;
-		}option;
-		struct
-		{
-			const L1ParserASTNode* expression;
-			const L1ParserASTNode* constraint;
-			const L1ParserASTNode* followingContext;
-		}constraint;
-		struct
-		{
-			const L1ParserASTNode* source;
-		}eval;
-		struct
-		{
-			const L1ParserASTNode* expression;
-			const L1ParserASTNode* constraint;
-		}inlineConstraint;
-		struct
-		{
-			const L1ParserASTNode* callee;
-			const L1ParserASTNodeLinkedList* arguments;
-		}metacall;
-		struct
-		{
-			const L1ParserASTNode* destination;
-			bool isMeta;
-			const L1ParserASTNode* followingContext;
-		}declare;
-		struct
-		{
-			const L1ParserASTNode* source;
-		}construct;
-		struct
-		{
-			const L1ParserASTNode* source;
-		}import;
-		struct
-		{
-			const L1ParserASTNode* source;
-		}any;
 	}data;
 };
 
-enum L1ParserErrorType
+typedef struct L1Parser L1Parser;
+struct L1Parser
 {
-	L1ParserErrorTypeNone,
-	L1ParserErrorTypeUnknown,
-	L1ParserErrorTypeUnexpectedToken,
+	L1Array
+		symbolStack,
+		syntaxTreeNodes,
+		locationStack;
+	size_t currentTokenIndex;
+	size_t rootASTNode;
 };
 
-typedef enum L1ParserErrorType L1ParserErrorType;
-
-typedef struct L1ParserLexedToken L1ParserLexedToken;
-struct L1ParserLexedToken
+enum L1ParserStatusType
 {
-	L1LexerTokenType type;
-	const uint8_t* bytes;
-	uint64_t byteCount;
+	L1ParserStatusTypeNone,
+	L1ParserStatusTypeDone,
+	L1ParserStatusTypeUnexpectedSymbol,
 };
 
-L1Parser* L1ParserNew(const L1ParserLexedToken* tokens, uint64_t tokenCount);
-L1ParserErrorType L1ParserGetError(L1Parser* self);
-const L1ParserASTNode* L1ParserGetRootASTNode(L1Parser* self);
-void L1ParserDelete(L1Parser* self);
+typedef enum L1ParserStatusType L1ParserStatusType;
 
-#ifdef __cplusplus
-}//extern "C"
-#endif
+void L1ParserInitialize(L1Parser* self);
+void L1ParserDeinitialize(L1Parser* self);
+
+L1ParserStatusType L1ParserParse(L1Parser* self, L1LexerTokenType tokenType, const char* tokenString, size_t tokenStringLength);
+
+const L1ParserASTNode* L1ParserGetASTNodes(L1Parser* self);
+size_t L1ParserGetASTNodeCount(L1Parser* self);
+size_t L1ParserGetRootASTNodeIndex(L1Parser* self);
+
+/*size_t L1ParserGetASTNodeCount(L1Parser* self);
+const unsigned char* L1ParserGetASTNodeTypes(L1Parser* self);
+const size_t* L1ParserGetASTNodeData(L1Parser* self);*/
 
 #endif

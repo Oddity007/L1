@@ -1,13 +1,13 @@
 #include "L1Lexer.h"
 #include <iso646.h>
 #include <stdio.h>
-#include "L1Parser.h"
+#include <stdbool.h>
 #include "L1Array.h"
-#include "L1Region.h"
 #include <string.h>
 #include <assert.h>
+#include "L1Parser.h"
 
-static void printHex(FILE* outputFile, const uint8_t* bytes, size_t byteCount)
+static void PrintHex(FILE* outputFile, const char* bytes, size_t byteCount)
 {
 	char chars[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 	for (size_t i = 0; i < byteCount; i++)
@@ -17,180 +17,113 @@ static void printHex(FILE* outputFile, const uint8_t* bytes, size_t byteCount)
 	}
 }
 
-static void PrintASTNodeJSON(FILE* outputFile, const L1ParserASTNode* node)
+static void PrintAST(FILE* outputFile, FILE* logFile, const L1ParserASTNode* nodes, size_t nodeCount, size_t currentNodeIndex, const char** tokenStrings, const size_t* tokenStringLengths)
 {
-	//fprintf(stderr, "Parse Node Type is %i\n", node ? (int) node -> type : -1);
-	if (not node)
+	if (not currentNodeIndex) abort();
+	switch (nodes[currentNodeIndex - 1].type)
 	{
-		fprintf(outputFile, "{\"type\" : \"undefined\"}");
-		return;
-	}
-	switch (node->type)
-	{
-		case L1ParserASTNodeTypeNatural:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"natural\", \"value\" : \"");
-			//fwrite(node->data.natural.bytes, node->data.natural.byteCount, 1, outputFile);
-			printHex(outputFile, node->data.natural.bytes, node->data.natural.byteCount);
+		case L1ParserASTNodeTypeIdentifier:
+			fprintf(outputFile, "{\"_type\":\"Identifier\",");
+			fprintf(outputFile, "\"data\":\"");
+			{
+				size_t i = nodes[currentNodeIndex - 1].data.identifier.tokenIndex - 1;
+				
+				PrintHex(outputFile, tokenStrings[i], tokenStringLengths[i]);
+			}
 			fprintf(outputFile, "\"}");
 			break;
 		case L1ParserASTNodeTypeString:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"string\", \"value\" : \"");
-			printHex(outputFile, node->data.string.bytes, node->data.string.byteCount);
+			fprintf(outputFile, "{\"_type\":\"String\",");
+			fprintf(outputFile, "\"data\":\"");
+			{
+				size_t i = nodes[currentNodeIndex - 1].data.string.tokenIndex - 1;
+				PrintHex(outputFile, tokenStrings[i], tokenStringLengths[i]);
+			}
 			fprintf(outputFile, "\"}");
 			break;
-		case L1ParserASTNodeTypeIdentifier:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"identifier\", \"value\" : \"");
-			//fwrite(node->data.identifier.bytes, node->data.identifier.byteCount, 1, outputFile);
-			printHex(outputFile, node->data.identifier.bytes, node->data.identifier.byteCount);
+		case L1ParserASTNodeTypeNatural:
+			fprintf(outputFile, "{\"_type\":\"Natural\",");
+			fprintf(outputFile, "\"data\":\"");
+			{
+				size_t i = nodes[currentNodeIndex - 1].data.natural.tokenIndex - 1;
+				PrintHex(outputFile, tokenStrings[i], tokenStringLengths[i]);
+			}
 			fprintf(outputFile, "\"}");
+			break;
+		case L1ParserASTNodeTypeEvaluateArgument:
+			fprintf(outputFile, "{\"_type\":\"EvaluateArgument\",");
+			fprintf(outputFile, "\"expression\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.evaluateArgument.expression, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeHideArgument:
+			fprintf(outputFile, "{\"_type\":\"HideArgument\",");
+			fprintf(outputFile, "\"expression\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.hideArgument.expression, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeOverload:
+			fprintf(outputFile, "{\"_type\":\"Overload\",");
+			fprintf(outputFile, "\"first\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.overload.first, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, ",\"second\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.overload.second, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeAssign:
+			fprintf(outputFile, "{\"_type\":\"Assign\",");
+			fprintf(outputFile, "\"destination\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.assign.destination, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, ",\"source\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.assign.source, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, ",\"followingContext\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.assign.followingContext, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeDefine:
+			fprintf(outputFile, "{\"_type\":\"Define\",");
+			fprintf(outputFile, "\"destination\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.define.destination, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, ",\"source\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.define.source, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, ",\"followingContext\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.define.followingContext, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeAnnotate:
+			fprintf(outputFile, "{\"_type\":\"Annotate\",");
+			fprintf(outputFile, "\"value\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.annotate.value, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, ",\"type\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.annotate.type, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeLambda:
+			fprintf(outputFile, "{\"_type\":\"Lambda\",");
+			fprintf(outputFile, "\"result\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.lambda.result, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, ",\"argument\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.lambda.argument, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypePi:
+			fprintf(outputFile, "{\"_type\":\"Pi\",");
+			fprintf(outputFile, "\"result\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.pi.result, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, ",\"argument\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.pi.argument, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeUnderscore:
+			abort();
 			break;
 		case L1ParserASTNodeTypeCall:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"call\", ");
-			fprintf(outputFile, "\"callee\" : ");
-			PrintASTNodeJSON(outputFile, node->data.call.callee);
-			fprintf(outputFile, ", \"arguments\" : [");
-			for (const L1ParserASTNodeLinkedList* arguments = node->data.call.arguments; arguments; arguments = arguments->tail)
-			{
-				PrintASTNodeJSON(outputFile, arguments->head);
-				if (arguments->tail) fprintf(outputFile, ", ");
-			}
-			fprintf(outputFile, "]");
+			fprintf(outputFile, "{\"_type\":\"Call\",");
+			fprintf(outputFile, "\"callee\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.call.callee, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, ",\"argument\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.call.argument, tokenStrings, tokenStringLengths);
 			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeAssignment:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"assignment\"");
-			fprintf(outputFile, ", \"destination\" : ");
-			PrintASTNodeJSON(outputFile, node->data.assignment.destination);
-			fprintf(outputFile, ", \"arguments\" : [");
-			for (const L1ParserASTNodeLinkedList* arguments = node->data.assignment.arguments; arguments; arguments = arguments->tail)
-			{
-				PrintASTNodeJSON(outputFile, arguments->head);
-				if (arguments->tail) fprintf(outputFile, ", ");
-			}
-			fprintf(outputFile, "]");
-			fprintf(outputFile, ", \"source\" : ");
-			PrintASTNodeJSON(outputFile, node->data.assignment.source);
-			fprintf(outputFile, ", \"followingContext\" : ");
-			PrintASTNodeJSON(outputFile, node->data.assignment.followingContext);
-			fprintf(outputFile, ", \"isMeta\" : %s", node->data.assignment.isMeta ? "true" : "false");
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeList:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"list\"");
-			fprintf(outputFile, ", \"elements\" : [");
-			for (const L1ParserASTNodeLinkedList* elements = node->data.list.elements; elements; elements = elements->tail)
-			{
-				PrintASTNodeJSON(outputFile, elements->head);
-				if (elements->tail) fprintf(outputFile, ", ");
-			}
-			fprintf(outputFile, "]");
-			fprintf(outputFile, ", \"sublist\" : ");
-			PrintASTNodeJSON(outputFile, node->data.list.sublist);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeAnonymousFunction:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"anonymousFunction\", ");
-			fprintf(outputFile, "\"arguments\" : [");
-			for (const L1ParserASTNodeLinkedList* arguments = node->data.anonymousFunction.arguments; arguments; arguments = arguments->tail)
-			{
-				PrintASTNodeJSON(outputFile, arguments->head);
-				if (arguments->tail) fprintf(outputFile, ", ");
-			}
-			fprintf(outputFile, "]");
-			fprintf(outputFile, ", \"source\" : ");
-			PrintASTNodeJSON(outputFile, node->data.anonymousFunction.source);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeOption:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"option\", ");
-			fprintf(outputFile, "\"construction\" : ");
-			PrintASTNodeJSON(outputFile, node->data.option.construction);
-			fprintf(outputFile, ", \"defaultConstruction\" : ");
-			PrintASTNodeJSON(outputFile, node->data.option.defaultConstruction);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeConstraint:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"constraint\", ");
-			fprintf(outputFile, "\"expression\" : ");
-			PrintASTNodeJSON(outputFile, node->data.constraint.expression);
-			fprintf(outputFile, ", \"constraint\" : ");
-			PrintASTNodeJSON(outputFile, node->data.constraint.constraint);
-			fprintf(outputFile, ", \"followingContext\" : ");
-			PrintASTNodeJSON(outputFile, node->data.constraint.followingContext);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeEval:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"eval\", ");
-			fprintf(outputFile, "\"source\" : ");
-			PrintASTNodeJSON(outputFile, node->data.eval.source);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeInlineConstraint:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"inlineConstraint\", ");
-			fprintf(outputFile, "\"expression\" : ");
-			PrintASTNodeJSON(outputFile, node->data.inlineConstraint.expression);
-			fprintf(outputFile, ", \"constraint\" : ");
-			PrintASTNodeJSON(outputFile, node->data.inlineConstraint.constraint);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeMetacall:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"metacall\", ");
-			fprintf(outputFile, "\"callee\" : ");
-			PrintASTNodeJSON(outputFile, node->data.metacall.callee);
-			fprintf(outputFile, ", \"arguments\" : [");
-			for (const L1ParserASTNodeLinkedList* arguments = node->data.metacall.arguments; arguments; arguments = arguments->tail)
-			{
-				PrintASTNodeJSON(outputFile, arguments->head);
-				if (arguments->tail) fprintf(outputFile, ", ");
-			}
-			fprintf(outputFile, "]");
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeDeclare:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"declare\"");
-			fprintf(outputFile, ", \"destination\" : ");
-			PrintASTNodeJSON(outputFile, node->data.declare.destination);
-			fprintf(outputFile, ", \"followingContext\" : ");
-			PrintASTNodeJSON(outputFile, node->data.declare.followingContext);
-			fprintf(outputFile, ", \"isMeta\" : %s", node->data.declare.isMeta ? "true" : "false");
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeConstruct:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"construct\", ");
-			fprintf(outputFile, "\"source\" : ");
-			PrintASTNodeJSON(outputFile, node->data.construct.source);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeImport:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"import\", ");
-			fprintf(outputFile, "\"source\" : ");
-			PrintASTNodeJSON(outputFile, node->data.import.source);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeAny:
-			fprintf(outputFile, "{");
-			fprintf(outputFile, "\"type\" : \"any\", ");
-			fprintf(outputFile, "\"source\" : ");
-			PrintASTNodeJSON(outputFile, node->data.any.source);
-			fprintf(outputFile, "}");
-			break;
-		default:
-			abort();
 			break;
 	}
 }
@@ -211,124 +144,32 @@ static char* LoadFileAsString(FILE* file)
 	string[length] = 0;
 	
 	return string;
-	
-	/*L1Array characterArray;
-	L1ArrayInitialize(& characterArray);
-	while (not feof(file))
-	{
-		char character = fgetc(file);
-		L1ArrayAppend(& characterArray, & character, sizeof(char));
-	}
-	L1ArrayDeinitialize(& characterArray);
-	
-	size_t size = L1ArrayGetElementCount(& characterArray);
-	char* characters = calloc(1, size + 1);
-	//characters[size] = 0;
-	return memcpy(characters, L1ArrayGetElements(& characterArray), size);*/
+}
+
+static char* CloneString(const char* s, size_t length)
+{
+	if (not length) return NULL;
+	if (not s) return NULL;
+	return memcpy(malloc(length), s, length);
 }
 
 typedef enum
 {
-	OutputTypeJSON,
-	OutputTypeLuaTable
+	OutputTypeAST,
 }OutputType;
-
-static void Compile(FILE* inputFile, FILE* logFile,  FILE* outputFile, OutputType outputType)
-{
-	char* codeString = LoadFileAsString(inputFile);
-	//fputs(codeString, logFile);
-	L1Lexer* lexer = L1LexerNew((const uint8_t*)codeString);
-	
-	L1Array tokenArray;
-	L1ArrayInitialize(& tokenArray);
-	L1Region* tokenDataRegion = L1RegionNew();
-	L1ParserLexedToken token;
-	
-	do
-	{
-		L1LexerLexNext(lexer, & token.type);
-		switch (L1LexerGetError(lexer))
-		{
-			case L1LexerErrorTypeNone:
-				break;
-			case L1LexerErrorTypeInvalidSequence:
-				abort();
-				break;
-			case L1LexerErrorTypeStringDidNotTerminate:
-				abort();
-				break;
-		}
-		const void* bytes = L1LexerGetLastTokenBytes(lexer, & token.byteCount);
-		token.bytes = memcpy(L1RegionAllocate(tokenDataRegion, token.byteCount), bytes, token.byteCount);
-		//fprintf(logFile, "Token: %i\n", (int) token.type);
-		L1ArrayAppend(& tokenArray, & token, sizeof(token));
-	}while (token.type not_eq L1LexerTokenTypeDone);
-	
-	L1LexerDelete(lexer);
-	
-	L1Parser* parser = L1ParserNew(L1ArrayGetElements(& tokenArray), L1ArrayGetElementCount(& tokenArray));
-	L1ParserErrorType errorType = L1ParserGetError(parser);
-	switch (errorType)
-	{
-		case L1ParserErrorTypeNone:
-			{
-				const L1ParserASTNode* rootASTNode = L1ParserGetRootASTNode(parser);
-				
-				assert(rootASTNode);
-				
-				switch (outputType)
-				{
-					case OutputTypeLuaTable:
-						{
-							//PrintASTNodeLuaTable(outputFile, rootASTNode);
-							abort();
-						}
-						break;
-					
-					case OutputTypeJSON:
-						{
-							PrintASTNodeJSON(outputFile, rootASTNode);
-						}
-						break;
-					
-					default:
-						abort();
-						break;
-				}
-			}
-			break;
-		case L1ParserErrorTypeUnexpectedToken:
-			fprintf(logFile, "Parser Error: Unexpected token.\n");
-			break;
-		case L1ParserErrorTypeUnknown:
-			fprintf(logFile, "Parser Error: Unknown\n");
-			break;
-	}
-	
-	L1ParserDelete(parser);
-	
-	L1ArrayDeinitialize(& tokenArray);
-	L1RegionDelete(tokenDataRegion);
-	
-	free(codeString);
-}
 
 int main(int argc, const char** argv)
 {
-	OutputType outputType = OutputTypeJSON;
+	OutputType outputType = OutputTypeAST;
 	FILE* inputFile = NULL;
 	FILE* outputFile = stdout;
 	for (int i = 0; i < argc; i++)
 	{
 		const char* arg = argv[i];
 		
-		if (strcmp(arg, "--lua") == 0)
+		if (strcmp(arg, "--ast") == 0)
 		{
-			outputType = OutputTypeLuaTable;
-		}
-		else if (strcmp(arg, "--json") == 0)
-		{
-			outputType = OutputTypeJSON;
+			outputType = OutputTypeAST;
 		}
 		else if (strcmp(arg, "-i") == 0)
 		{
@@ -354,11 +195,96 @@ int main(int argc, const char** argv)
 		}
 	}
 	
-	if (inputFile)
+	if (not inputFile)
 	{
-		Compile(inputFile, stderr, outputFile, outputType);
-		fclose(inputFile);
+		fputs("No input\n", stderr);
+		return 1;
 	}
+	
+	if (not outputFile)
+	{
+		fputs("No output specified\n", stderr);
+		return 1;
+	}
+	
+	char* codeString = LoadFileAsString(inputFile);
+	
+	L1Lexer lexer;
+	//L1LexerInitialize(& lexer, "nats :: __universe 0;\nzero :: nats;\nsucc (x : nats) :: nats;\nconst = (%T : __universe 0) (a : T) (b : T) -> a;\nid = (a : __universe 0) -> a;\nbranch = (0 a b -> a & 1 a b -> b);\nid :(a : __universe 0) => __universe 0");
+	L1LexerInitialize(& lexer, codeString);
+	
+	L1Parser parser;
+	L1ParserInitialize(& parser);
+	
+	L1Array tokenStrings;
+	L1Array tokenStringLengths;
+	L1ArrayInitialize(& tokenStrings);
+	L1ArrayInitialize(& tokenStringLengths);
+	
+	while (true)
+	{
+		L1LexerTokenType type = L1LexerLex(& lexer);
+		switch (L1LexerGetError(& lexer))
+		{
+			case L1LexerErrorNone:
+				{
+					//printf("%i ", (int) type);
+					size_t length = L1LexerGetPreviousTokenDataStringLength(& lexer);
+					const char* string = CloneString(L1LexerGetPreviousTokenDataString(& lexer), length);
+					L1ArrayPush(& tokenStrings, & string, sizeof(const char*));
+					L1ArrayPush(& tokenStringLengths, & length, sizeof(size_t));
+					//if (length)
+					//	fwrite(string, length, 1, stdout);
+					//puts("");
+					switch (L1ParserParse(& parser, type, string, length))
+					{
+						case L1ParserStatusTypeNone:
+							break;
+						case L1ParserStatusTypeDone:
+							if (outputType == OutputTypeAST)
+							{
+								PrintAST(outputFile, stderr, L1ParserGetASTNodes(& parser), L1ParserGetASTNodeCount(& parser), L1ParserGetRootASTNodeIndex(& parser), L1ArrayGetElements(& tokenStrings), L1ArrayGetElements(& tokenStringLengths));
+							}
+							goto done;
+						case L1ParserStatusTypeUnexpectedSymbol:
+							fprintf(stderr, "Unexpected symbol at line %u\n", (unsigned int) L1LexerGetCurrentLineNumber(& lexer));
+							goto done;
+					}
+				}
+				break;
+			case L1LexerErrorUnexpectedCharacter:
+				fputs("Unexpected Character\n", stderr);
+				goto done;
+			case L1LexerErrorInvalidEscapeSequence:
+				fputs("Invalid Escape Sequence\n", stderr);
+				goto done;
+			case L1LexerErrorUnterminatedString:
+				fputs("Unterminated String\n", stderr);
+				goto done;
+			case L1LexerErrorUnterminatedComment:
+				fputs("Unterminated Comment\n", stderr);
+				goto done;
+		}
+		
+		if (type == L1LexerTokenTypeDone) goto done;
+	}
+	
+	done:
+	
+	for (size_t i = 0; i < L1ArrayGetElementCount(& tokenStrings); i++)
+	{
+		char** tokenStringsElements = L1ArrayGetElements(& tokenStrings);
+		free(tokenStringsElements[i]);
+	}
+	
+	L1ArrayDeinitialize(& tokenStrings);
+	L1ArrayDeinitialize(& tokenStringLengths);
+	
+	L1ParserDeinitialize(& parser);
+	
+	L1LexerDeinitialize(& lexer);
+	
+	free(codeString);
 	
 	return 0;
 }

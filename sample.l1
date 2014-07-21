@@ -1,27 +1,9 @@
-__declare map;
-map f [] = [];
-id x = x;
-map f ['x ... 'xs] = [f x ... map f xs];
-__declare any;
-any f ['x ... 'xs] = (f x | any f xs);
-monad m = 
-(
-	(
-		a b ->
-		(
-			m.unit :: m a;
-			m.bind :: ($(m a) ($a -> m b) -> m b);
-			m
-		)
-	) :: (a b -> m);
-	m
-);
-//foo (a : b : c) = [a, b, c];
-__declare nat;
-nat =
-(
-	.zero = __construct [];
-	.succ (x : nat) = __construct [x];
-	(zero | succ ('x : nat))
-);
-map
+nats :: __universe 0;
+zero :: nats;
+succ :: (x : nats) => nats;
+const = (%T : __universe 0) -> (a : T) -> (b : T) -> a;
+id = (a : __universe 0) -> a;
+branch
+	= 0 -> a -> b -> a
+	& 1 -> a -> b -> b;
+id : (a : __universe 0) => __universe 0

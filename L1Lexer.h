@@ -1,66 +1,82 @@
 #ifndef L1Lexer_h
 #define L1Lexer_h
 
-#include <stdint.h>
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include <stdlib.h>
+#include "L1Array.h"
+#include <iso646.h>
+#include <string.h>
+#include <assert.h>
 
 enum L1LexerTokenType
 {
 	L1LexerTokenTypeNatural,
-	L1LexerTokenTypeIdentifier,
 	L1LexerTokenTypeString,
-	L1LexerTokenTypeAssign,
-	L1LexerTokenTypeOpeningParenthesis,
-	L1LexerTokenTypeClosingParenthesis,
-	L1LexerTokenTypeOpeningSquareBracket,
-	L1LexerTokenTypeClosingSquareBracket,
-	L1LexerTokenTypeComma,
+	
+	L1LexerTokenTypeIdentifier,
+	
 	L1LexerTokenTypeTerminal,
-	L1LexerTokenTypeQuestionMark,
-	L1LexerTokenTypeExclaimationMark,
+	
+	L1LexerTokenTypeOpenParenthesis,
+	L1LexerTokenTypeCloseParenthesis,
+	
+	L1LexerTokenTypeSingleEqual,
 	L1LexerTokenTypeSingleColon,
 	L1LexerTokenTypeDoubleColon,
-	L1LexerTokenTypeYield,
-	L1LexerTokenTypeConstructorYield,
-	L1LexerTokenTypeSingleDot,
-	L1LexerTokenTypeDoubleDot,
-	L1LexerTokenTypeTripleDot,
-	L1LexerTokenTypeSingleQuote,
+	
+	L1LexerTokenTypeSingleBarArrow,
+	L1LexerTokenTypeDoubleBarArrow,
+	
+	//L1LexerTokenTypeUnderscore,
+	//L1LexerTokenTypeUniverse,
+	
+	//L1LexerTokenTypeMinus,
+	
 	L1LexerTokenTypeDollar,
-	L1LexerTokenTypeBar,
-	L1LexerTokenTypeDeclare,
-	L1LexerTokenTypeConstruct,
-	L1LexerTokenTypeImport,
+	L1LexerTokenTypePercent,
+	L1LexerTokenTypeAmpersand,
+	
 	L1LexerTokenTypeDone,
-	L1LexerTokenTypeLast = L1LexerTokenTypeDone
 };
-
 typedef enum L1LexerTokenType L1LexerTokenType;
 
-enum L1LexerErrorType
+enum L1LexerError
 {
-	L1LexerErrorTypeNone,
-	L1LexerErrorTypeInvalidSequence,
-	L1LexerErrorTypeStringDidNotTerminate,
+	L1LexerErrorNone,
+	L1LexerErrorInvalidEscapeSequence,
+	L1LexerErrorUnterminatedString,
+	L1LexerErrorUnterminatedComment,
+	L1LexerErrorUnexpectedCharacter,
 };
-
-typedef enum L1LexerErrorType L1LexerErrorType;
+typedef enum L1LexerError L1LexerError;
 
 typedef struct L1Lexer L1Lexer;
+struct L1Lexer
+{
+	L1Array
+		characterBuffer;
+	size_t
+		currentLineNumber;
+	const char
+		*input,
+		*inputEnd;
+	L1LexerError
+		error;
+};
 
-L1Lexer* L1LexerNew(const uint8_t* nullTerminatedUTF8Bytes);
-void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType);
-uint64_t L1LexerGetCurrentLineNumber(L1Lexer* self);
-L1LexerErrorType L1LexerGetError(L1Lexer* self);
-const uint8_t* L1LexerGetLastTokenBytes(L1Lexer* self, uint64_t* byteCount);
-void L1LexerDelete(L1Lexer* self);
+void L1LexerInitialize(L1Lexer* self, const char* input);
 
-#ifdef __cplusplus
-}//extern "C"
-#endif
+void L1LexerDeinitialize(L1Lexer* self);
+
+L1LexerError L1LexerGetError(L1Lexer* self);
+
+size_t L1LexerGetCurrentLineNumber(L1Lexer* self);
+
+const char* L1LexerGetPreviousTokenDataString(L1Lexer* self);
+
+size_t L1LexerGetPreviousTokenDataStringLength(L1Lexer* self);
+
+L1LexerTokenType L1LexerLex(L1Lexer* self);
+
+
 
 #endif

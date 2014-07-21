@@ -1,302 +1,217 @@
 #include "L1Lexer.h"
-#include <iso646.h>
-#include <stdbool.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <iso646.h>
+#include <limits.h>
+#include "L1Array.h"
 #include <string.h>
+#include <stdbool.h>
+//#include <assert.h>
 
-struct L1Lexer
+void L1LexerInitialize(L1Lexer* self, const char* input)
 {
-	uint8_t* bufferBytes;
-	uint64_t bufferByteCount;
-	L1LexerTokenType lastTokenType;
-	uint64_t currentLineNumber;
-	const uint8_t* inputBytes;
-	L1LexerErrorType lastErrorType;
-};
-
-L1Lexer* L1LexerNew(const uint8_t* nullTerminatedUTF8Bytes)
-{
-	L1Lexer* self = calloc(1, sizeof(L1Lexer));
-	self->inputBytes = nullTerminatedUTF8Bytes;
-	return self;
+	L1ArrayInitialize(& self->characterBuffer);
+	self->currentLineNumber = 0;
+	self->input = input;
+	self->inputEnd = input + strlen(input);
+	assert(* self->inputEnd == 0);
+	self->error = L1LexerErrorNone;
 }
 
-static void AddCharacterToBuffer(L1Lexer* self, uint8_t c)
+void L1LexerDeinitialize(L1Lexer* self)
 {
-	self->bufferByteCount++;
-	self->bufferBytes = realloc(self->bufferBytes, self->bufferByteCount);
-	self->bufferBytes[self->bufferByteCount - 1] = c;
+	L1ArrayDeinitialize(& self->characterBuffer);
 }
 
-static void ClearBuffer(L1Lexer* self)
+L1LexerError L1LexerGetError(L1Lexer* self)
 {
-	free(self->bufferBytes);
-	self->bufferBytes = NULL;
-	self->bufferByteCount = 0;
+	return self->error;
 }
 
-void L1LexerLexNext(L1Lexer* self, L1LexerTokenType* tokenType)
+const char* L1LexerGetPreviousTokenDataString(L1Lexer* self)
 {
-	assert(tokenType);
-	ClearBuffer(self);
-	*tokenType = L1LexerTokenTypeDone;
-	assert(self->lastErrorType == L1LexerErrorTypeNone);
-	while(*self->inputBytes)
+	return (const char*) L1ArrayGetElements(& self->characterBuffer);
+}
+
+size_t L1LexerGetPreviousTokenDataStringLength(L1Lexer* self)
+{
+	return L1ArrayGetElementCount(& self->characterBuffer);
+}
+
+/*
+bool isRestrictedCharacter(char c)
+{
+	switch (c)
 	{
-		switch (*self->inputBytes)
+		case
+		default: return false;
+	}
+}*/
+
+size_t L1LexerGetCurrentLineNumber(L1Lexer* self)
+{
+	return self->currentLineNumber + 1;
+}
+
+L1LexerTokenType L1LexerLex(L1Lexer* self)
+{
+//	assert(self->input <= self->inputEnd);
+	self->error = L1LexerErrorNone;
+	L1ArraySetElementCount(& self->characterBuffer, 0, 1);
+	while (* self->input)
+	{
+		char c = * self->input;
+		self->input++;
+		switch (c)
 		{
+			case '\0':
+				return L1LexerTokenTypeDone;
 			case '\n':
 				self->currentLineNumber++;
+			case '\t':
 			case ' ':
 			case '\r':
-			case '\t':
-				self->inputBytes++;
 				break;
-			case ':':
-				self->inputBytes++;
-				if (self->inputBytes[0] not_eq ':')
-				{
-					*tokenType = L1LexerTokenTypeSingleColon;
-					goto end;
-				}
-				
-				self->inputBytes++;
-				*tokenType = L1LexerTokenTypeDoubleColon;
-				
-				goto end;
-			case '=':
-				self->inputBytes++;
-				*tokenType = L1LexerTokenTypeAssign;
-				goto end;
-			case '-':
-				self->inputBytes++;
-				if (self->inputBytes[0] == '>')
-				{
-					*tokenType = L1LexerTokenTypeYield;
-					self->inputBytes++;
-				}
-				else
-				{
-					self->lastErrorType = L1LexerErrorTypeInvalidSequence;
-					*tokenType = L1LexerTokenTypeDone;
-				}
-				goto end;
-			case '(':
-				*tokenType = L1LexerTokenTypeOpeningParenthesis;
-				self->inputBytes++;
-				goto end;
-			case ')':
-				*tokenType = L1LexerTokenTypeClosingParenthesis;
-				self->inputBytes++;
-				goto end;
-			case '.':
-				self->inputBytes++;
-				if (self->inputBytes[0] not_eq '.')
-				{
-					*tokenType = L1LexerTokenTypeSingleDot;
-					goto end;
-				}
-				self->inputBytes++;
-				if (self->inputBytes[0] not_eq '.')
-				{
-					*tokenType = L1LexerTokenTypeDoubleDot;
-					goto end;
-				}
-				
-				*tokenType = L1LexerTokenTypeTripleDot;
-				self->inputBytes++;
-				goto end;
-			case '[':
-				*tokenType = L1LexerTokenTypeOpeningSquareBracket;
-				self->inputBytes++;
-				goto end;
-			case ']':
-				*tokenType = L1LexerTokenTypeClosingSquareBracket;
-				self->inputBytes++;
-				goto end;
-			case ',':
-				*tokenType = L1LexerTokenTypeComma;
-				self->inputBytes++;
-				goto end;
 			case ';':
-				*tokenType = L1LexerTokenTypeTerminal;
-				self->inputBytes++;
-				goto end;
-			case '?':
-				*tokenType = L1LexerTokenTypeQuestionMark;
-				self->inputBytes++;
-				goto end;
-			case '!':
-				*tokenType = L1LexerTokenTypeExclaimationMark;
-				self->inputBytes++;
-				goto end;
-			case '|':
-				*tokenType = L1LexerTokenTypeBar;
-				self->inputBytes++;
-				goto end;
+				return L1LexerTokenTypeTerminal;
+			case '(':
+				return L1LexerTokenTypeOpenParenthesis;
+			case ')':
+				return L1LexerTokenTypeCloseParenthesis;
+			case ':':
+				if (* self->input == ':')
+				{
+					self->input++;
+					return L1LexerTokenTypeDoubleColon;
+				}
+				return L1LexerTokenTypeSingleColon;
+			case '=':
+				if (* self->input == '>')
+				{
+					self->input++;
+					return L1LexerTokenTypeDoubleBarArrow;
+				}
+				return L1LexerTokenTypeSingleEqual;
+			case '-':
+				if (* self->input == '>')
+				{
+					self->input++;
+					return L1LexerTokenTypeSingleBarArrow;
+				}
+				self->error = L1LexerErrorUnexpectedCharacter;
+				return L1LexerTokenTypeDone;
+			/*case '_':
+				if (strncmp(self->input, "_universe", 9) == 0)
+				{
+					self->input += 9;
+					return L1LexerTokenTypeUniverse;
+				}
+				return L1LexerTokenTypeUnderscore;*/
 			case '$':
-				*tokenType = L1LexerTokenTypeDollar;
-				self->inputBytes++;
-				goto end;
-			case '\'':
-				*tokenType = L1LexerTokenTypeSingleQuote;
-				self->inputBytes++;
-				goto end;
-			case '/':
-				if(self->inputBytes[1] == '/')
-				{
-					while(*self->inputBytes and *self->inputBytes not_eq '\n') self->inputBytes++;
-					break;
-				}
-				else if (self->inputBytes[1] == '*')
-				{
-					self->inputBytes += 2;
-					while(*self->inputBytes)
-					{
-						if(self->inputBytes[0] == '*' and self->inputBytes[1] == '/')
-						{
-							break;
-						}
-						self->inputBytes++;
-					}
-					self->inputBytes += 2;
-					break;
-				}
-				else
-				{
-					self->lastErrorType = L1LexerErrorTypeInvalidSequence;
-					*tokenType = L1LexerTokenTypeDone;
-					goto end;
-				}
-				break;
+				return L1LexerTokenTypeDollar;
+			case '%':
+				return L1LexerTokenTypePercent;
+			case '&':
+				return L1LexerTokenTypeAmpersand;
 			case '"':
-				*tokenType = L1LexerTokenTypeString;
-				self->inputBytes++;
-				while (*self->inputBytes)
+				while (* self->input)
 				{
-					switch (*self->inputBytes)
+					char c = * self->input;
+					self->input++;
+					switch (c)
 					{
 						case '"':
-							self->inputBytes++;
-							goto end;
+							return L1LexerTokenTypeString;
 						case '\\':
-							self->inputBytes++;
-							switch (*self->inputBytes)
 							{
-								case '\\':
-									AddCharacterToBuffer(self, '\\');
-									break;
-								case 'n':
-									AddCharacterToBuffer(self, '\n');
-									break;
-								case 'r':
-									AddCharacterToBuffer(self, '\r');
-									break;
-								case '"':
-									AddCharacterToBuffer(self, '"');
-									break;
-								case 't':
-									AddCharacterToBuffer(self, '\t');
-									break;
-								default:
-									self->lastErrorType = L1LexerErrorTypeInvalidSequence;
-									*tokenType = L1LexerTokenTypeDone;
-									goto end;
+								char c = * self->input;
+								self->input++;
+								char e;
+								switch (c)
+								{
+									case '\\': e = '\\'; break;
+									case 'n': e = '\n'; break;
+									case 'r': e = '\r'; break;
+									case '"': e = '"'; break;
+									case 't': e = '\t'; break;
+									default:
+										self->error =
+											L1LexerErrorInvalidEscapeSequence;
+										return L1LexerTokenTypeDone;
+								}
+								L1ArrayAppend(& self->characterBuffer, & e, 1);
 							}
 							break;
 						case '\n':
 							self->currentLineNumber++;
 						default:
-							AddCharacterToBuffer(self, *self->inputBytes);
+							L1ArrayAppend(& self->characterBuffer, & c, 1);
 							break;
 					}
-					self->inputBytes++;
 				}
-				self->lastErrorType = L1LexerErrorTypeStringDidNotTerminate;
-				*tokenType = L1LexerTokenTypeDone;
-				goto end;
-			default:
-				while (*self->inputBytes and *self->inputBytes >= '0' and *self->inputBytes <= '9')
+				self->error = L1LexerErrorUnterminatedString;
+				return L1LexerTokenTypeDone;
+			case '/':
+				if (* self->input == '/')
 				{
-					*tokenType = L1LexerTokenTypeNatural;
-					AddCharacterToBuffer(self, *self->inputBytes);
-					self->inputBytes++;
+					while (* self->input and ('\n' not_eq * self->input))
+						self->input++;
+					break;
 				}
-				if(*tokenType == L1LexerTokenTypeNatural) goto end;
-				
-				*tokenType = L1LexerTokenTypeIdentifier;
-				const uint8_t reservedCharacters[] = " \n\t\r=()[]\",;?/:$>.'!|-";
-				const uint8_t* rcp;
-				while (*self->inputBytes)
+				else if (* self->input == '*')
 				{
-					rcp = reservedCharacters;
-					bool characterIsReserved = false;
-					while(*rcp)
+					self->input++;
+					while (* self->input and * self->input)
+					if (not (* self->input))
 					{
-						if (*rcp == *self->inputBytes)
-						{
-							characterIsReserved = true;
-							break;
-						}
-						rcp++;
+						self->error = L1LexerErrorUnterminatedComment;
+						return L1LexerTokenTypeDone;
 					}
-					if(characterIsReserved) goto end;
-					AddCharacterToBuffer(self, *self->inputBytes);
-					self->inputBytes++;
+					break;
 				}
-				goto end;
+			default:
+				if ('0' <= c and c <= '9')
+				{
+					L1ArrayAppend(& self->characterBuffer, & c, 1);
+					char c;
+					while ('0' <= (c = * (self->input ++)) and c <= '9')
+					{
+						L1ArrayAppend(& self->characterBuffer, & c, 1);
+					}
+					self->input--;
+					return L1LexerTokenTypeNatural;
+				}
+				{
+					const char restrictedCharacters[UCHAR_MAX] =
+					{
+						[' '] = 1,
+						['\r'] = 1,
+						['\n'] = 1,
+						['\t'] = 1,
+						['/'] = 1,
+						['('] = 1,
+						[')'] = 1,
+						[';'] = 1,
+						['-'] = 1,
+						//['_'] = 1,
+						['$'] = 1,
+						['%'] = 1,
+						['='] = 1,
+						[':'] = 1,
+						['&'] = 1,
+						['\0'] = 1,
+					};
+					do
+					{
+						L1ArrayAppend(& self->characterBuffer, & c, 1);
+						c = * self->input;
+						self->input++;
+					}
+					while (not restrictedCharacters[(unsigned char) c]);
+					self->input--;
+					return L1LexerTokenTypeIdentifier;
+				}
+				break;
 		}
 	}
-	end:
-	if (*tokenType == L1LexerTokenTypeIdentifier)
-	{
-		if (self->bufferByteCount == strlen("__declare") and 0 == memcmp(self->bufferBytes, "__declare", self->bufferByteCount))
-		{
-			*tokenType = L1LexerTokenTypeDeclare;
-			ClearBuffer(self);
-		}
-		if (self->bufferByteCount == strlen("__construct") and 0 == memcmp(self->bufferBytes, "__construct", self->bufferByteCount))
-		{
-			*tokenType = L1LexerTokenTypeConstruct;
-			ClearBuffer(self);
-		}
-		if (self->bufferByteCount == strlen("__import") and 0 == memcmp(self->bufferBytes, "__import", self->bufferByteCount))
-		{
-			*tokenType = L1LexerTokenTypeImport;
-			ClearBuffer(self);
-		}
-	}
-	self->lastTokenType = *tokenType;
-}
-
-uint64_t L1LexerGetCurrentLineNumber(L1Lexer* self)
-{
-	return self->currentLineNumber;
-}
-
-L1LexerErrorType L1LexerGetError(L1Lexer* self)
-{
-	return self->lastErrorType;
-}
-
-const uint8_t* L1LexerGetLastTokenBytes(L1Lexer* self, uint64_t* byteCount)
-{
-	switch (self->lastTokenType)
-	{
-		case L1LexerTokenTypeNatural:
-		case L1LexerTokenTypeString:
-		case L1LexerTokenTypeIdentifier:
-			break;
-		default:
-			if (byteCount) *byteCount = 0;
-			return NULL;
-	}
-	if(byteCount) *byteCount = self->bufferByteCount;
-	return self->bufferBytes;
-}
-
-void L1LexerDelete(L1Lexer* self)
-{
-	free(self->bufferBytes);
+	return L1LexerTokenTypeDone;
 }
