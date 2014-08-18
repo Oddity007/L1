@@ -52,6 +52,31 @@ size_t L1LexerGetCurrentLineNumber(L1Lexer* self)
 	return self->currentLineNumber + 1;
 }
 
+static void Mul10Add(L1Array* byteBuffer, unsigned char digit)
+{
+	assert(digit < 10);
+	size_t byteCount = L1ArrayGetElementCount(byteBuffer);
+	if (byteCount == 0)
+	{
+		L1ArrayPush(byteBuffer, & digit, 1);
+		return;
+	}
+	unsigned char* bytes = L1ArrayGetElements(byteBuffer);
+	unsigned int accumulator = digit;
+	for (size_t i = 0; i < byteCount; i++)
+	{
+		accumulator += bytes[i];
+		bytes[i] = accumulator bitand 0xFF;
+		accumulator >>= 8;
+	}
+	if (accumulator > 0)
+	{
+		assert(accumulator == 1);
+		unsigned char carriedBit = 1;
+		L1ArrayPush(byteBuffer, & carriedBit, 1);
+	}
+}
+
 L1LexerTokenType L1LexerLex(L1Lexer* self)
 {
 //	assert(self->input <= self->inputEnd);
@@ -112,6 +137,15 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 				return L1LexerTokenTypePercent;
 			case '&':
 				return L1LexerTokenTypeAmpersand;
+			case '#':
+				if (strncmp(self->input, "declare", 7) == 0)
+				{
+					self->input += 7;
+					return L1LexerTokenTypeDeclare;
+				}
+				abort();
+				self->error = L1LexerErrorUnexpectedCharacter;
+				return L1LexerTokenTypeDone;
 			case '"':
 				while (* self->input)
 				{
@@ -160,22 +194,33 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 				else if (* self->input == '*')
 				{
 					self->input++;
-					while (* self->input and * self->input)
+					while (* self->input)
+					{
+						if (self->input[0] == '*' and self->input[1] == '/')
+						{
+							self->input += 2;
+							goto found_end_of_multline_comment;
+						}
+						self->input++;
+					}
 					if (not (* self->input))
 					{
 						self->error = L1LexerErrorUnterminatedComment;
 						return L1LexerTokenTypeDone;
 					}
+					found_end_of_multline_comment:
 					break;
 				}
 			default:
 				if ('0' <= c and c <= '9')
 				{
-					L1ArrayAppend(& self->characterBuffer, & c, 1);
+					//L1ArrayAppend(& self->characterBuffer, & c, 1);
+					Mul10Add(& self->characterBuffer, c - '0');
 					char c;
 					while ('0' <= (c = * (self->input ++)) and c <= '9')
 					{
-						L1ArrayAppend(& self->characterBuffer, & c, 1);
+						Mul10Add(& self->characterBuffer, c - '0');
+						//L1ArrayAppend(& self->characterBuffer, & c, 1);
 					}
 					self->input--;
 					return L1LexerTokenTypeNatural;
@@ -198,6 +243,7 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 						['='] = 1,
 						[':'] = 1,
 						['&'] = 1,
+						['#'] = 1,
 						['\0'] = 1,
 					};
 					do

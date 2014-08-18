@@ -30,7 +30,7 @@ void* L1ArrayGetElements(L1Array* self);
 size_t L1ArrayGetElementCount(L1Array* self);
 
 void L1ArrayPush(L1Array* self, const void* bytes, size_t elementByteCount);
-
+void L1ArrayInsert(L1Array* self, const void* bytes, size_t elementByteCount, size_t elementIndex);
 void L1ArrayPop(L1Array* self, void* bytes, size_t elementByteCount);
 void L1ArrayPeek(L1Array* self, void* bytes, size_t elementByteCount);
 

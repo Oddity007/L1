@@ -35,6 +35,8 @@ enum L1LexerTokenType
 	L1LexerTokenTypePercent,
 	L1LexerTokenTypeAmpersand,
 	
+	L1LexerTokenTypeDeclare,
+	
 	L1LexerTokenTypeDone,
 };
 typedef enum L1LexerTokenType L1LexerTokenType;

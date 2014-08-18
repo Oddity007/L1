@@ -9,8 +9,13 @@
 
 static void PrintHex(FILE* outputFile, const char* bytes, size_t byteCount)
 {
+	//assert(byteCount > 0);
+	//fputs("Hex of ", stderr);
+	//if (byteCount)
+	//		fwrite(bytes, byteCount, 1, stderr);
+	//fputs("\n", stderr);
 	char chars[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-	for (size_t i = 0; i < byteCount; i++)
+	for (size_t i = byteCount; i-- > 0;)
 	{
 		fputc(chars[(bytes[i] >> 4) & 0xF], outputFile);
 		fputc(chars[(bytes[i] >> 0) & 0xF], outputFile);
@@ -26,8 +31,8 @@ static void PrintAST(FILE* outputFile, FILE* logFile, const L1ParserASTNode* nod
 			fprintf(outputFile, "{\"_type\":\"Identifier\",");
 			fprintf(outputFile, "\"data\":\"");
 			{
-				size_t i = nodes[currentNodeIndex - 1].data.identifier.tokenIndex - 1;
-				
+				size_t i = nodes[currentNodeIndex - 1].data.identifier.tokenIndex - 2;
+				//fprintf(stderr, "node %u\n", (unsigned int) i);
 				PrintHex(outputFile, tokenStrings[i], tokenStringLengths[i]);
 			}
 			fprintf(outputFile, "\"}");
@@ -36,7 +41,8 @@ static void PrintAST(FILE* outputFile, FILE* logFile, const L1ParserASTNode* nod
 			fprintf(outputFile, "{\"_type\":\"String\",");
 			fprintf(outputFile, "\"data\":\"");
 			{
-				size_t i = nodes[currentNodeIndex - 1].data.string.tokenIndex - 1;
+				size_t i = nodes[currentNodeIndex - 1].data.string.tokenIndex - 2;
+				//fprintf(stderr, "node %u\n", (unsigned int) i);
 				PrintHex(outputFile, tokenStrings[i], tokenStringLengths[i]);
 			}
 			fprintf(outputFile, "\"}");
@@ -45,7 +51,8 @@ static void PrintAST(FILE* outputFile, FILE* logFile, const L1ParserASTNode* nod
 			fprintf(outputFile, "{\"_type\":\"Natural\",");
 			fprintf(outputFile, "\"data\":\"");
 			{
-				size_t i = nodes[currentNodeIndex - 1].data.natural.tokenIndex - 1;
+				size_t i = nodes[currentNodeIndex - 1].data.natural.tokenIndex - 2;
+				//fprintf(stderr, "node %u\n", (unsigned int) i);
 				PrintHex(outputFile, tokenStrings[i], tokenStringLengths[i]);
 			}
 			fprintf(outputFile, "\"}");
@@ -123,6 +130,14 @@ static void PrintAST(FILE* outputFile, FILE* logFile, const L1ParserASTNode* nod
 			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.call.callee, tokenStrings, tokenStringLengths);
 			fprintf(outputFile, ",\"argument\":");
 			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.call.argument, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, "}");
+			break;
+		case L1ParserASTNodeTypeDeclare:
+			fprintf(outputFile, "{\"_type\":\"Declare\",");
+			fprintf(outputFile, "\"destination\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.declare.destination, tokenStrings, tokenStringLengths);
+			fprintf(outputFile, ",\"followingContext\":");
+			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.declare.followingContext, tokenStrings, tokenStringLengths);
 			fprintf(outputFile, "}");
 			break;
 	}
@@ -221,6 +236,7 @@ int main(int argc, const char** argv)
 	L1ArrayInitialize(& tokenStrings);
 	L1ArrayInitialize(& tokenStringLengths);
 	
+	size_t tokenID = 0;
 	while (true)
 	{
 		L1LexerTokenType type = L1LexerLex(& lexer);
@@ -233,12 +249,16 @@ int main(int argc, const char** argv)
 					const char* string = CloneString(L1LexerGetPreviousTokenDataString(& lexer), length);
 					L1ArrayPush(& tokenStrings, & string, sizeof(const char*));
 					L1ArrayPush(& tokenStringLengths, & length, sizeof(size_t));
+					tokenID++;
+					//fprintf(stderr, "Token #%u ", (unsigned int) tokenID);
 					//if (length)
-					//	fwrite(string, length, 1, stdout);
-					//puts("");
+					//	fwrite(string, length, 1, stderr);
+					//fputs("\n", stderr);
 					switch (L1ParserParse(& parser, type, string, length))
 					{
 						case L1ParserStatusTypeNone:
+							//fprintf(stderr, "tokenID = %u, parser.currentTokenIndex = %u\n", (unsigned int) tokenID, (unsigned int) parser.currentTokenIndex);
+							assert(tokenID == parser.currentTokenIndex);
 							break;
 						case L1ParserStatusTypeDone:
 							if (outputType == OutputTypeAST)

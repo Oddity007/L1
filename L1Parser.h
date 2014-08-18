@@ -25,6 +25,8 @@ enum L1ParserASTNodeType
 	L1ParserASTNodeTypeUnderscore,
 	
 	L1ParserASTNodeTypeCall,
+	
+	L1ParserASTNodeTypeDeclare
 };
 typedef enum L1ParserASTNodeType L1ParserASTNodeType;
 
@@ -91,6 +93,11 @@ struct L1ParserASTNode
 			size_t callee;
 			size_t argument;
 		}call;
+		struct
+		{
+			size_t destination;
+			size_t followingContext;
+		}declare;
 	}data;
 };
 

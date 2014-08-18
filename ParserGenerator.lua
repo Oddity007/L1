@@ -1,11 +1,11 @@
-local Tokens = {"Natural", "String", "Identifier", "Terminal", "OpenParenthesis", "CloseParenthesis", "SingleEqual", "SingleColon", "DoubleColon", "SingleBarArrow", "DoubleBarArrow", "Dollar", "Percent", "Ampersand", "Done",}
+local Tokens = {"Natural", "String", "Identifier", "Terminal", "OpenParenthesis", "CloseParenthesis", "SingleEqual", "SingleColon", "DoubleColon", "SingleBarArrow", "DoubleBarArrow", "Dollar", "Percent", "Ampersand", "Declare", "Done",}
 
 local Actions = {
 	setRoot = "self->rootASTNode = PopNodeLocation(self);",
 	
 	pushIdentifier = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeIdentifier; node.data.identifier.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
-	pushNatural = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeNatural; node.data.identifier.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
-	pushString = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeString; node.data.identifier.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
+	pushNatural = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeNatural; node.data.natural.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
+	pushString = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeString; node.data.string.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
 	
 	pushEvaluateArgument = "size_t expression = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeEvaluateArgument); node.data.evaluateArgument.expression = expression; PushNode(self, & node);",
 	pushHideArgument = "size_t expression = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeHideArgument); node.data.hideArgument.expression = expression; PushNode(self, & node);",
@@ -15,12 +15,14 @@ local Actions = {
 	pushCall = "size_t argument = PopNodeLocation(self); size_t callee = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeCall); node.data.call.callee = callee; node.data.call.argument = argument; PushNode(self, & node);",
 	
 	pushLambda = "size_t result = PopNodeLocation(self); size_t argument = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeLambda); node.data.lambda.argument = argument; node.data.lambda.result = result; PushNode(self, & node);",
-	pushPi = "size_t result = PopNodeLocation(self); size_t argument = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypePi); node.data.lambda.argument = argument; node.data.lambda.result = result; PushNode(self, & node);",
+	pushPi = "size_t result = PopNodeLocation(self); size_t argument = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypePi); node.data.pi.argument = argument; node.data.pi.result = result; PushNode(self, & node);",
 	
 	pushAnnotate = "size_t type = PopNodeLocation(self); size_t value = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeAnnotate); node.data.annotate.value = value; node.data.annotate.type = type; PushNode(self, & node);",
 	
 	pushAssign = "size_t followingContext = PopNodeLocation(self); size_t source = PopNodeLocation(self); size_t destination = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeAssign); node.data.assign.destination = destination; node.data.assign.source = source; node.data.assign.followingContext = followingContext; PushNode(self, & node);",
-	pushDefine = "size_t followingContext = PopNodeLocation(self); size_t source = PopNodeLocation(self); size_t destination = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeDefine); node.data.assign.destination = destination; node.data.assign.source = source; node.data.assign.followingContext = followingContext; PushNode(self, & node);",
+	pushDefine = "size_t followingContext = PopNodeLocation(self); size_t source = PopNodeLocation(self); size_t destination = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeDefine); node.data.define.destination = destination; node.data.define.source = source; node.data.define.followingContext = followingContext; PushNode(self, & node);",
+	
+	pushDeclare = "size_t followingContext = PopNodeLocation(self); size_t destination = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeDeclare); node.data.declare.destination = destination; node.data.declare.followingContext = followingContext; PushNode(self, & node);"
 }
 
 --[[local Rules = {
@@ -54,6 +56,8 @@ local Rules = {
 		{type = "Program", "Exp", action = Actions.setRoot},
 		
 		{type = "Exp", "ClosedExp", "ExpFollow"},
+		--{type = "Exp", "ChainedClosedExp", "ExpFollow"},
+		{type = "Exp", "Declare", "ClosedExp", "Terminal", "Exp", action = Actions.pushDeclare},
 		{type = "ExpFollow", "SingleEqual", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushAssign},
 		{type = "ExpFollow", "DoubleColon", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushDefine},
 		{type = "ExpFollow", "SingleColon", "ChainedClosedExp", action = Actions.pushAnnotate},

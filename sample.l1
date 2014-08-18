@@ -1,9 +1,16 @@
-nats :: __universe 0;
-zero :: nats;
-succ :: (x : nats) => nats;
-const = (%T : __universe 0) -> (a : T) -> (b : T) -> a;
-id = (a : __universe 0) -> a;
-branch
+//* = __universe 0;
+//id = (a : *) -> a;
+//idt = (a : *) => *;
+//id : idt
+
+//#declare nats;
+//nats :: __adt;
+//	zero :: nats;
+//	succ :: (x : nats) => nats;
+/*branch
 	= 0 -> a -> b -> a
-	& 1 -> a -> b -> b;
-id : (a : __universe 0) => __universe 0
+	& 1 -> a -> b -> b;*/
+* = __universe 0;
+const = (T : *) -> (a : T) -> (b : T) -> a;
+id = (a : *) -> a;
+id : (a : *) => *

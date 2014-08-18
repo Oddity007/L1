@@ -71,6 +71,29 @@ void L1ArrayPush(L1Array* self, const void* bytes, size_t elementByteCount)
 	L1ArrayAppend(self, bytes, elementByteCount);
 }
 
+static void swap(char* as, char* bs, size_t size)
+{
+	for (size_t i = 0; i < size; i++)
+	{
+		char a = as[i];
+		as[i] = bs[i];
+		bs[i] = a;
+	}
+}
+
+void L1ArrayInsert(L1Array* self, const void* bytes, size_t elementByteCount, size_t elementIndex)
+{
+	L1ArrayPush(self, bytes, elementByteCount);
+	char* as = elementByteCount * self->elementCount + (char*) self->elements;
+	char* bs = as - elementByteCount;
+	for (size_t i = self->elementCount - 1; i-- > elementIndex;)
+	{
+		swap(as, bs, elementByteCount);
+		as -= elementByteCount;
+		bs -= elementByteCount;
+	}
+}
+
 void L1ArrayPop(L1Array* self, void* bytes, size_t elementByteCount)
 {
 	size_t elementCount = L1ArrayGetElementCount(self);
