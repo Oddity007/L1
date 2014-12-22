@@ -11,7 +11,6 @@ enum L1ParserASTNodeType
 	L1ParserASTNodeTypeNatural,
 	
 	L1ParserASTNodeTypeEvaluateArgument,
-	L1ParserASTNodeTypeHideArgument,
 	
 	L1ParserASTNodeTypeOverload,
 	
@@ -52,10 +51,6 @@ struct L1ParserASTNode
 		{
 			size_t expression;
 		}evaluateArgument;
-		struct
-		{
-			size_t expression;
-		}hideArgument;
 		struct
 		{
 			size_t first;

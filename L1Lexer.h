@@ -37,6 +37,10 @@ enum L1LexerTokenType
 	
 	L1LexerTokenTypeDeclare,
 	
+	L1LexerTokenTypeComma,
+	L1LexerTokenTypeOpenBracket,
+	L1LexerTokenTypeCloseBracket,
+	
 	L1LexerTokenTypeDone,
 };
 typedef enum L1LexerTokenType L1LexerTokenType;

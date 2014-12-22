@@ -6,6 +6,7 @@
 #include <string.h>
 #include <assert.h>
 #include "L1Parser.h"
+#include "L1IR.h"
 
 static void PrintHex(FILE* outputFile, const char* bytes, size_t byteCount)
 {
@@ -61,12 +62,6 @@ static void PrintAST(FILE* outputFile, FILE* logFile, const L1ParserASTNode* nod
 			fprintf(outputFile, "{\"_type\":\"EvaluateArgument\",");
 			fprintf(outputFile, "\"expression\":");
 			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.evaluateArgument.expression, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeHideArgument:
-			fprintf(outputFile, "{\"_type\":\"HideArgument\",");
-			fprintf(outputFile, "\"expression\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.hideArgument.expression, tokenStrings, tokenStringLengths);
 			fprintf(outputFile, "}");
 			break;
 		case L1ParserASTNodeTypeOverload:
@@ -155,7 +150,8 @@ static char* LoadFileAsString(FILE* file)
 	
 	char* string = malloc(length + 1);
 	
-	fread(string, 1, length, file);
+	if (1 not_eq fread(string, length, 1, file))
+		abort();
 	string[length] = 0;
 	
 	return string;
@@ -305,6 +301,38 @@ int main(int argc, const char** argv)
 	L1LexerDeinitialize(& lexer);
 	
 	free(codeString);
+
+	/*fputs("\nNow testing IR...\n", stderr);
+	
+	L1IRGlobalState globalState;
+	L1IRGlobalStateInitialize(& globalState);
+	L1IRLocalState localState;
+	L1IRLocalStateInitialize(& localState);
+
+	const L1IRSlot slots[] = 
+	{
+		L1IRMakeSlot(L1IRSlotTypeUnitType, 0, 0, 0),
+		L1IRMakeSlot(L1IRSlotTypeArgument, 0, 0, 0),
+	};
+	const uint16_t slotCount = sizeof(slots) / sizeof(slots[0]);
+	fputs("\nCreating block\n", stderr);
+	L1IRGlobalAddress simpleBlockAddress = L1IRGlobalStateCreateBlock(& globalState, L1IRGlobalStateBlockTypeLambda, slots, slotCount, 1);
+	//L1ArrayPush(& computationBuffer.slots, (L1IRSlot[1]){L1IRMakeSlot(L1IRSlotTypeUnit, 0, 0, 0)}, sizeof(L1IRSlot));
+	L1IRLocalAddress unitLocalAddress = L1IRLocalStateCreateSlot(& localState, L1IRMakeSlot(L1IRSlotTypeUnit, 0, 0, 0));
+	fputs("\nRunning block...\n", stderr);
+	uint16_t resultLocalAddress = L1IRGlobalStateCall(& globalState, & localState, simpleBlockAddress, unitLocalAddress);
+	//assert(resultLocalAddress);
+	//assert(L1ArrayGetElementCount(& computationSlots) == 1);
+	//assert(L1IRExtractSlotType(* (const L1IRSlot*) L1ArrayGetElements(& computationSlots)) == L1IRSlotTypeUnit);
+	fprintf(stderr, "result: #%u\n", (unsigned) resultLocalAddress);
+	for (size_t i = 0; i < L1ArrayGetElementCount(& localState.slots); i++)
+	{
+		L1IRSlot slot = ((const L1IRSlot*) L1ArrayGetElements(& localState.slots))[i];
+		fprintf(stderr, "#%u: %u (%u, %u, %u)\n", (unsigned) i, (unsigned) L1IRExtractSlotType(slot), (unsigned) L1IRExtractSlotOperand(slot, 0), (unsigned) L1IRExtractSlotOperand(slot, 1), (unsigned) L1IRExtractSlotOperand(slot, 2));
+	}
+
+	L1IRLocalStateDeinitialize(& localState);
+	L1IRGlobalStateDeinitialize(& globalState);*/
 	
 	return 0;
 }

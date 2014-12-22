@@ -1,4 +1,4 @@
-local Tokens = {"Natural", "String", "Identifier", "Terminal", "OpenParenthesis", "CloseParenthesis", "SingleEqual", "SingleColon", "DoubleColon", "SingleBarArrow", "DoubleBarArrow", "Dollar", "Percent", "Ampersand", "Declare", "Done",}
+local Tokens = {"Natural", "String", "Identifier", "Terminal", "OpenParenthesis", "CloseParenthesis", "SingleEqual", "SingleColon", "DoubleColon", "SingleBarArrow", "DoubleBarArrow", "Dollar", "Percent", "Ampersand", "Declare", "Comma", "OpenBracket", "CloseBracket", "Done",}
 
 local Actions = {
 	setRoot = "self->rootASTNode = PopNodeLocation(self);",
@@ -8,7 +8,6 @@ local Actions = {
 	pushString = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeString; node.data.string.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
 	
 	pushEvaluateArgument = "size_t expression = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeEvaluateArgument); node.data.evaluateArgument.expression = expression; PushNode(self, & node);",
-	pushHideArgument = "size_t expression = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeHideArgument); node.data.hideArgument.expression = expression; PushNode(self, & node);",
 	
 	pushOverload = "size_t second = PopNodeLocation(self); size_t first = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeOverload); node.data.overload.first = first; node.data.overload.second = second; PushNode(self, & node);",
 	
@@ -77,11 +76,14 @@ local Rules = {
 		{type = "ChainedClosedExpCallFollow", "ChainedClosedExpAmpersandFollow"},
 		{type = "ChainedClosedExpCallFollow", ""},
 		
-		{type = "ClosedExp", "Percent", "ClosedExp", action = Actions.pushHideArgument},
+		{type = "ExpList", "Exp", "ExpListFollow"},
+		{type = "ExpListFollow", "Comma", "ExpListFollow"},
+		
 		{type = "ClosedExp", "Dollar", "ClosedExp", action =  Actions.pushEvaluateArgument},
 		{type = "ClosedExp", "Identifier", action = Actions.pushIdentifier},
 		{type = "ClosedExp", "String", aciton = Actions.pushString},
 		{type = "ClosedExp", "Natural", action = Actions.pushNatural},
+		{type = "ClosedExp", "OpenBracket", "ExpList", "CloseBracket"},
 		{type = "ClosedExp", "OpenParenthesis", "Exp", "CloseParenthesis"},
 }
 

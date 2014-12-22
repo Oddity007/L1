@@ -102,6 +102,12 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 				return L1LexerTokenTypeOpenParenthesis;
 			case ')':
 				return L1LexerTokenTypeCloseParenthesis;
+			case ',':
+				return L1LexerTokenTypeComma;
+			case '{':
+				return L1LexerTokenTypeOpenBracket;
+			case '}':
+				return L1LexerTokenTypeCloseBracket;
 			case ':':
 				if (* self->input == ':')
 				{
@@ -244,6 +250,9 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 						[':'] = 1,
 						['&'] = 1,
 						['#'] = 1,
+						[','] = 1,
+						['['] = 1,
+						[']'] = 1,
 						['\0'] = 1,
 					};
 					do
