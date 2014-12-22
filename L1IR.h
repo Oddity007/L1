@@ -22,6 +22,11 @@ enum L1IRSlotType
 	L1IRSlotTypeLambda, //captures (16), prototype block address (hi16, lo16)
 	L1IRSlotTypePi, //captures (16), prototype block address (hi16, lo16)
 
+	L1IRSlotTypePair, //first (16), second (16)
+	L1IRSlotTypeSigma, //captures (16), prototype block address (hi16, lo16)
+
+	L1IRSlotTypeProjectPair, //pair (16), index (16)
+
 	L1IRSlotTypeCall, //callee (16), argument (16)
 
 	L1IRSlotTypeLast = L1IRSlotTypeCall
