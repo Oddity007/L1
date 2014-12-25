@@ -23,7 +23,6 @@ static L1IRAnnotatedLocalAddress L1IRAnnotateLocalAddress(L1IRLocalAddress addre
 	return ((uint32_t) annotation << 16) + address;
 }
 
-
 static uint8_t L1IRExtractSlotAnnotation(L1IRSlot slot)
 {
 	return (slot >> 8) & 0xFF;
@@ -33,6 +32,16 @@ static void L1IRSetSlotAnnotation(L1IRSlot* slot, uint8_t annotation)
 {
 	*slot &= 0xFFFFFFFFFFFF00FF;
 	*slot |= annotation << 8;
+}
+
+static L1IRGlobalAddress L1IRSlotGetEmbeddedGlobalAddress(L1IRSlot slot)
+{
+	return ((uint32_t) L1IRExtractSlotOperand(slot, 2) << 16) + L1IRExtractSlotOperand(slot, 1);
+}
+
+static uint16_t SplitGlobalAddress(L1IRGlobalAddress address, uint16_t part)
+{
+	return (address >> (part * 16)) & 0xFFFF;
 }
 
 static uint16_t L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* localState, uint32_t calleeAddress, L1IRAnnotatedLocalAddress argumentLocalAddress, L1IRAnnotatedLocalAddress captureLocalAddress, uint16_t* finalArgumentLocalAddress);
@@ -85,6 +94,7 @@ static const uint8_t SlotArgumentDescriptions[L1IRSlotTypeLast + 1] =
 	[L1IRSlotTypeNone] = 0,
 	[L1IRSlotTypeArgument] = NodeArgumentMask(1),
 	[L1IRSlotTypeCaptured] = 0,
+	[L1IRSlotTypeSelf] = 0,
 	[L1IRSlotTypeUnit] = 0,
 	[L1IRSlotTypeUnitType] = 0,
 	[L1IRSlotTypeCapturedTupleType] = NodeArgumentMask(0) | NodeArgumentMask(1),
@@ -185,11 +195,11 @@ static bool AreEqual(L1IRGlobalState* self, L1IRLocalState* localState, uint16_t
 		case L1IRSlotTypeSigma:
 			{
 				PushGCBarrier(self, localState);
-				uint32_t pi1Address = ((uint32_t) L1IRExtractSlotOperand(value1Slot, 2) << 16) + L1IRExtractSlotOperand(value1Slot, 1);
+				uint32_t pi1Address = L1IRSlotGetEmbeddedGlobalAddress(value1Slot);
 				uint16_t pi1ArgumentLocalAddress = 0;
 				uint16_t pi1ResultLocalAddress = L1IRGlobalStateEvaluate(self, localState, pi1Address, UINT32_MAX, L1IRExtractSlotOperand(value1Slot, 2), & pi1ArgumentLocalAddress);
 
-				uint32_t pi2Address = ((uint32_t) L1IRExtractSlotOperand(value2Slot, 2) << 16) + L1IRExtractSlotOperand(value2Slot, 1);
+				uint32_t pi2Address = L1IRSlotGetEmbeddedGlobalAddress(value2Slot);
 				uint16_t pi2ArgumentLocalAddress = 0;
 				uint16_t pi2ResultLocalAddress = L1IRGlobalStateEvaluate(self, localState, pi2Address, UINT32_MAX, L1IRExtractSlotOperand(value2Slot, 2), & pi2ArgumentLocalAddress);
 
@@ -209,6 +219,22 @@ static bool AreEqual(L1IRGlobalState* self, L1IRLocalState* localState, uint16_t
 			}
 			return true;
 	}
+	return false;
+}
+
+//Dependency checking
+
+static bool SlotDependsOnSlot(L1IRGlobalState* self, L1IRLocalState* localState, uint16_t dependentLocalAddress, uint16_t dependencyLocalAddress)
+{
+	if (dependencyLocalAddress == dependentLocalAddress) return true;
+	if (dependencyLocalAddress > dependentLocalAddress) return false;
+	const L1IRSlot* slots = L1ArrayGetElements(& localState->slots);
+	L1IRSlot dependentSlot = slots[dependentLocalAddress];
+	L1IRSlotType type = L1IRExtractSlotType(dependentSlot);
+	for (uint8_t i = 0; i < 3; i++)
+		if (SlotTypeArgumentIsLocalAddress(type, i))
+			if (SlotDependsOnSlot(self, localState, L1IRExtractSlotOperand(dependentSlot, i), dependencyLocalAddress))
+				return true;
 	return false;
 }
 
@@ -267,6 +293,7 @@ static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState*
 		case L1IRSlotTypeNone:
 		case L1IRSlotTypeArgument:
 		case L1IRSlotTypeCaptured:
+		case L1IRSlotTypeSelf:
 			break;
 		case L1IRSlotTypeUniverse:
 		case L1IRSlotTypeUnit:
@@ -309,7 +336,7 @@ static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState*
 				{
 					case L1IRSlotTypeLambda:
 						{
-							L1IRGlobalAddress calleeAddress = ((uint32_t) L1IRExtractSlotOperand(calleeSlot, 2) << 16) + L1IRExtractSlotOperand(calleeSlot, 1);
+							L1IRGlobalAddress calleeAddress = L1IRSlotGetEmbeddedGlobalAddress(calleeSlot);
 							uint16_t captureLocalAddress = L1IRExtractSlotOperand(calleeSlot, 2);
 							PushGCBarrier(self, localState);
 							uint16_t result = L1IRGlobalStateEvaluate(self, localState, calleeAddress, argumentLocalAddress, captureLocalAddress, NULL);
@@ -331,6 +358,7 @@ static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState*
 					case L1IRSlotTypeCaptured:
 					case L1IRSlotTypeCall:
 					case L1IRSlotTypeProjectPair:
+					case L1IRSlotTypeSelf:
 						break;
 				}
 			}
@@ -350,6 +378,9 @@ static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* local
 	L1IRSlot typeSlot = slots[typeLocalAddress];
 	switch (L1IRExtractSlotType(valueSlot))
 	{
+		case L1IRSlotTypeSelf:
+			abort();
+			break;
 		case L1IRSlotTypeCaptured:
 			return true;//Don't really like this, but w/e
 		case L1IRSlotTypeUniverse:
@@ -372,7 +403,7 @@ static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* local
 				calleeTypeLocalAddress = L1IRExtractSlotOperand(calleeSlot, 1);
 				L1IRSlot calleeTypeSlot = slots[calleeTypeLocalAddress];
 				if (L1IRExtractSlotType(calleeTypeSlot) not_eq L1IRSlotTypePi) return false;
-				uint32_t piAddress = ((uint32_t) L1IRExtractSlotOperand(calleeTypeSlot, 2) << 16) + L1IRExtractSlotOperand(calleeTypeSlot, 1);
+				uint32_t piAddress = L1IRSlotGetEmbeddedGlobalAddress(calleeTypeSlot);
 				PushGCBarrier(self, localState);
 				uint16_t piResultLocalAddress = L1IRGlobalStateEvaluate(self, localState, piAddress, argumentLocalAddress, L1IRExtractSlotOperand(calleeTypeSlot, 0), NULL);
 				//slots = L1ArrayGetElements(& localState->slots);
@@ -382,7 +413,6 @@ static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* local
 			}
 		case L1IRSlotTypeProjectPair:
 			{
-				abort();
 				assert (L1IRExtractSlotOperand(valueSlot, 1) < 2);
 				uint16_t pairLocalAddress = L1IRExtractSlotOperand(valueSlot, 0);
 				L1IRSlot pairSlot = slots[pairLocalAddress];
@@ -392,7 +422,7 @@ static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* local
 				L1IRSlot sigmaSlot = slots[sigmaLocalAddress];
 				if (L1IRExtractSlotType(sigmaSlot) not_eq L1IRSlotTypeSigma) return false;
 
-				uint32_t sigmaAddress = ((uint32_t) L1IRExtractSlotOperand(sigmaSlot, 2) << 16) + L1IRExtractSlotOperand(sigmaSlot, 1);
+				uint32_t sigmaAddress = L1IRSlotGetEmbeddedGlobalAddress(sigmaSlot);
 				PushGCBarrier(self, localState);
 				uint16_t sigmaArgumentLocalAddress = 0;
 				uint16_t sigmaResultLocalAddress = L1IRGlobalStateEvaluate(self, localState, sigmaAddress, UINT32_MAX, L1IRExtractSlotOperand(sigmaSlot, 0), & sigmaArgumentLocalAddress);
@@ -413,10 +443,10 @@ static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* local
 			{
 				PushGCBarrier(self, localState);
 				uint16_t lambdaArgumentLocalAddress = 0;
-				uint32_t lambdaAddress = ((uint32_t) L1IRExtractSlotOperand(valueSlot, 2) << 16) + L1IRExtractSlotOperand(valueSlot, 1);
+				uint32_t lambdaAddress = L1IRSlotGetEmbeddedGlobalAddress(valueSlot);
 				uint16_t lambdaResultLocalAddress = L1IRGlobalStateEvaluate(self, localState, lambdaAddress, UINT32_MAX, L1IRExtractSlotOperand(valueSlot, 2), & lambdaArgumentLocalAddress);
 
-				uint32_t piAddress = ((uint32_t) L1IRExtractSlotOperand(typeSlot, 2) << 16) + L1IRExtractSlotOperand(typeSlot, 1);
+				uint32_t piAddress = L1IRSlotGetEmbeddedGlobalAddress(typeSlot);
 				uint16_t piArgumentLocalAddress = 0;
 				uint16_t piResultLocalAddress = L1IRGlobalStateEvaluate(self, localState, piAddress, lambdaArgumentLocalAddress, L1IRExtractSlotOperand(typeSlot, 2), & piArgumentLocalAddress);
 
@@ -428,7 +458,7 @@ static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* local
 		case L1IRSlotTypeSigma:
 			if (L1IRExtractSlotType(typeSlot) not_eq L1IRSlotTypeUniverse) return false;
 			{
-				uint32_t piAddress = ((uint32_t) L1IRExtractSlotOperand(typeSlot, 2) << 16) + L1IRExtractSlotOperand(typeSlot, 1);
+				uint32_t piAddress = L1IRSlotGetEmbeddedGlobalAddress(typeSlot);
 				uint16_t piArgumentLocalAddress = 0;
 				PushGCBarrier(self, localState);
 				uint16_t piResultLocalAddress = L1IRGlobalStateEvaluate(self, localState, piAddress, UINT32_MAX, L1IRExtractSlotOperand(typeSlot, 0), & piArgumentLocalAddress);
@@ -452,7 +482,7 @@ static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* local
 				uint16_t pairFirstLocalAddress = L1IRExtractSlotOperand(valueSlot, 0);
 				uint16_t pairSecondLocalAddress = L1IRExtractSlotOperand(valueSlot, 1);
 
-				uint32_t sigmaAddress = ((uint32_t) L1IRExtractSlotOperand(typeSlot, 2) << 16) + L1IRExtractSlotOperand(typeSlot, 1);
+				uint32_t sigmaAddress = L1IRSlotGetEmbeddedGlobalAddress(typeSlot);
 				uint16_t sigmaResultLocalAddress = L1IRGlobalStateEvaluate(self, localState, sigmaAddress, pairFirstLocalAddress, L1IRExtractSlotOperand(typeSlot, 0), NULL);
 
 				bool isOfType = L1IRGlobalStateIsOfType(self, localState, pairSecondLocalAddress, sigmaResultLocalAddress);
@@ -504,6 +534,8 @@ static uint16_t L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* l
 		for (uint8_t j = 0; j < 3; j++) operands[j] = SlotTypeArgumentIsLocalAddress(type, j) ? mergingSlotRemappings[operands[j]]: operands[j];
 		switch (type)
 		{
+			case L1IRSlotTypeNone:
+				break;
 			case L1IRSlotTypeArgument:
 				{
 					assert(operands[0] == 0);
@@ -538,8 +570,50 @@ static uint16_t L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* l
 					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeCaptured, operands[0], 0, 0));
 				}
 				break;
-			case L1IRSlotTypeNone:
-				break;
+			case L1IRSlotTypeSelf:
+				if (localState->callDepth > 1)
+				{
+					uint16_t captureLocalAddress = 0;
+
+					if (L1IRAnnotatedLocalAddressIsUsable(captureLocalAddress))
+					{
+						const L1IRSlot* slots = L1ArrayGetElements(& localState->slots);
+						L1IRSlot pairSlot = slots[L1IRAnnotatedLocalAddressGetLocalAddress(captureLocalAddress)];
+						assert (L1IRExtractSlotType(pairSlot) not_eq L1IRSlotTypeCapturedTuple);
+						for(uint16_t i = 0; i < operands[0]; i++)
+						{
+							assert (L1IRExtractSlotType(pairSlot) == L1IRSlotTypeCapturedTuple);
+							pairSlot = slots[L1IRExtractSlotOperand(pairSlot, 1)];
+							i++;
+						}
+						assert (L1IRExtractSlotType(pairSlot) == L1IRSlotTypeCapturedTuple);
+						captureLocalAddress = L1IRExtractSlotOperand(pairSlot, 0);
+					}
+					else
+					{
+						const L1IRSlot* slots = L1ArrayGetElements(& localState->slots);
+						assert (localState->callDepth == 1);
+						assert (not L1IRAnnotatedLocalAddressIsUsable(argumentLocalAddress));
+						captureLocalAddress = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeCaptured, 0, 0, 0));
+					}
+
+					L1IRSlotType resultType = L1IRSlotTypeNone;
+					switch (block->type)
+					{
+						case L1IRGlobalStateBlockTypeLambda:
+							resultType = L1IRSlotTypeLambda;
+							break;
+						case L1IRGlobalStateBlockTypePi:
+							resultType = L1IRSlotTypePi;
+							break;
+						case L1IRGlobalStateBlockTypeSigma:
+							resultType = L1IRSlotTypeSigma;
+							break;
+					}
+
+					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(resultType, captureLocalAddress, SplitGlobalAddress(calleeAddress, 0), SplitGlobalAddress(calleeAddress, 1)));
+					break;
+				}
 			case L1IRSlotTypeUniverse:
 			case L1IRSlotTypeUnit:
 			case L1IRSlotTypeUnitType:

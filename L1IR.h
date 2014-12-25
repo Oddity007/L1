@@ -11,6 +11,10 @@ enum L1IRSlotType
 	
 	L1IRSlotTypeArgument, //id (16), type (16)
 	L1IRSlotTypeCaptured, //index (16)
+
+	//Warning: Introduces general recursion
+	L1IRSlotTypeSelf,
+
 	L1IRSlotTypeUniverse, //index (16)
 	
 	L1IRSlotTypeUnit,
@@ -28,6 +32,11 @@ enum L1IRSlotType
 	L1IRSlotTypeProjectPair, //pair (16), index (16)
 
 	L1IRSlotTypeCall, //callee (16), argument (16)
+
+	//L1IRSlotTypeADT, //captures (16), prototype block address (hi16, lo16)
+	//L1IRSlotTypeADTConstructor, //adt (16), tag (16), argtype (16)
+	//L1IRSlotTypeADTConstructorOf, //adt (16), tag (16)
+	//L1IRSlotTypeADTConstructedOf, //adt (16), tag (16), arg (16)
 
 	L1IRSlotTypeLast = L1IRSlotTypeCall
 };
@@ -75,6 +84,7 @@ enum L1IRGlobalStateBlockType
 	L1IRGlobalStateBlockTypeLambda,
 	L1IRGlobalStateBlockTypePi,
 	L1IRGlobalStateBlockTypeSigma,
+//	L1IRGlobalStateBlockTypeADT,
 };
 typedef enum L1IRGlobalStateBlockType L1IRGlobalStateBlockType;
 
