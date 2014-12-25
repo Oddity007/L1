@@ -1,4 +1,4 @@
-local Tokens = {"Natural", "String", "Identifier", "Terminal", "OpenParenthesis", "CloseParenthesis", "SingleEqual", "SingleColon", "DoubleColon", "SingleBarArrow", "DoubleBarArrow", "Dollar", "Percent", "Ampersand", "Declare", "Comma", "OpenBracket", "CloseBracket", "Done",}
+local Tokens = {"Natural", "String", "Identifier", "Terminal", "OpenParenthesis", "CloseParenthesis", "SingleEqual", "SingleColon", "DoubleColon", "SingleBarArrow", "DoubleBarArrow", "Dollar", "Percent", "Ampersand", "Declare", "Comma", "OpenBracket", "CloseBracket", "Let", "Self", "Universe", "Done",}
 
 local Actions = {
 	setRoot = "self->rootASTNode = PopNodeLocation(self);",
@@ -6,6 +6,8 @@ local Actions = {
 	pushIdentifier = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeIdentifier; node.data.identifier.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
 	pushNatural = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeNatural; node.data.natural.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
 	pushString = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeString; node.data.string.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
+	pushUniverse = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeNatural; node.data.natural.tokenIndex = self->currentTokenIndex; PushNode(self, & node); node.type = L1ParserASTNodeTypeUniverse; node.data.universe.level = PopNodeLocation(self); PushNode(self, & node);",
+	pushSelf = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeSelf; PushNode(self, & node);",
 	
 	pushEvaluateArgument = "size_t expression = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeEvaluateArgument); node.data.evaluateArgument.expression = expression; PushNode(self, & node);",
 	
@@ -19,9 +21,15 @@ local Actions = {
 	pushAnnotate = "size_t type = PopNodeLocation(self); size_t value = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeAnnotate); node.data.annotate.value = value; node.data.annotate.type = type; PushNode(self, & node);",
 	
 	pushAssign = "size_t followingContext = PopNodeLocation(self); size_t source = PopNodeLocation(self); size_t destination = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeAssign); node.data.assign.destination = destination; node.data.assign.source = source; node.data.assign.followingContext = followingContext; PushNode(self, & node);",
-	pushDefine = "size_t followingContext = PopNodeLocation(self); size_t source = PopNodeLocation(self); size_t destination = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeDefine); node.data.define.destination = destination; node.data.define.source = source; node.data.define.followingContext = followingContext; PushNode(self, & node);",
-	
-	pushDeclare = "size_t followingContext = PopNodeLocation(self); size_t destination = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeDeclare); node.data.declare.destination = destination; node.data.declare.followingContext = followingContext; PushNode(self, & node);"
+
+	pushNull = "PushNode(self, NULL);",
+
+	pushADT = "size_t constructorList = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeADT); node.data.adt.constructorList = constructorList; PushNode(self, & node);",
+
+	pushArgumentList = "size_t previousArgumentList = PopNodeLocation(self); size_t argument = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeArgumentList); node.data.argumentList.argument = argument; node.data.argumentList.previousArgumentList = previousArgumentList; PushNode(self, & node);",
+	pushConstructorList = "size_t previousConstructorList = PopNodeLocation(self); size_t argumentList = PopNodeLocation(self); size_t constructorName = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeConstructorList); node.data.constructorList.argumentList = argumentList; node.data.constructorList.constructorName = constructorName; node.data.constructorList.previousConstructorList = previousConstructorList; PushNode(self, & node);",
+
+	pushLet = "size_t followingContext = PopNodeLocation(self); size_t source = PopNodeLocation(self); size_t argumentList = PopNodeLocation(self); size_t destination = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeLet); node.data.let.destination = destination; node.data.let.argumentList = argumentList; node.data.let.source = source; node.data.let.followingContext = followingContext; PushNode(self, & node);",
 }
 
 --[[local Rules = {
@@ -55,10 +63,10 @@ local Rules = {
 		{type = "Program", "Exp", action = Actions.setRoot},
 		
 		{type = "Exp", "ClosedExp", "ExpFollow"},
-		--{type = "Exp", "ChainedClosedExp", "ExpFollow"},
-		{type = "Exp", "Declare", "ClosedExp", "Terminal", "Exp", action = Actions.pushDeclare},
+
+		{type = "Exp", "Let", "Identifier", "ClosedExpList", "SingleEqual", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushLet},
 		{type = "ExpFollow", "SingleEqual", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushAssign},
-		{type = "ExpFollow", "DoubleColon", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushDefine},
+
 		{type = "ExpFollow", "SingleColon", "ChainedClosedExp", action = Actions.pushAnnotate},
 		{type = "ExpFollow", ""},
 		
@@ -75,15 +83,22 @@ local Rules = {
 		{type = "ChainedClosedExpCallFollow", "ClosedExp", "DoChainedClosedExpFollowCallAction", "ChainedClosedExpCallFollow"},
 		{type = "ChainedClosedExpCallFollow", "ChainedClosedExpAmpersandFollow"},
 		{type = "ChainedClosedExpCallFollow", ""},
-		
-		{type = "ExpList", "Exp", "ExpListFollow"},
-		{type = "ExpListFollow", "Comma", "ExpListFollow"},
+
+		{type = "ClosedExpList", "ClosedExp", "ClosedExpList", action = Actions.pushArgumentList},
+		{type = "ClosedExpList", "", action = Actions.pushNull},
+
+		{type = "ConsDefList", "Identifier", "ClosedExpList", "ConsDefListFollow", action = Actions.pushConstructorList},
+		{type = "ConsDefList", "", action = Actions.pushNull},
+		{type = "ConsDefListFollow", "Comma", "ConsDefList"},
+		{type = "ConsDefListFollow", ""},
 		
 		{type = "ClosedExp", "Dollar", "ClosedExp", action =  Actions.pushEvaluateArgument},
 		{type = "ClosedExp", "Identifier", action = Actions.pushIdentifier},
-		{type = "ClosedExp", "String", aciton = Actions.pushString},
+		{type = "ClosedExp", "String", action = Actions.pushString},
 		{type = "ClosedExp", "Natural", action = Actions.pushNatural},
-		{type = "ClosedExp", "OpenBracket", "ExpList", "CloseBracket"},
+		{type = "ClosedExp", "Self", action = Actions.pushSelf},
+		{type = "ClosedExp", "Universe", "Natural", action = Actions.pushUniverse},
+		{type = "ClosedExp", "OpenBracket", "ConsDefList", "CloseBracket", action = Actions.pushADT},
 		{type = "ClosedExp", "OpenParenthesis", "Exp", "CloseParenthesis"},
 }
 

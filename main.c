@@ -26,7 +26,7 @@ static void PrintHex(FILE* outputFile, const char* bytes, size_t byteCount)
 static void PrintAST(FILE* outputFile, FILE* logFile, const L1ParserASTNode* nodes, size_t nodeCount, size_t currentNodeIndex, const char** tokenStrings, const size_t* tokenStringLengths)
 {
 	if (not currentNodeIndex) abort();
-	switch (nodes[currentNodeIndex - 1].type)
+	/*switch (nodes[currentNodeIndex - 1].type)
 	{
 		case L1ParserASTNodeTypeIdentifier:
 			fprintf(outputFile, "{\"_type\":\"Identifier\",");
@@ -135,7 +135,7 @@ static void PrintAST(FILE* outputFile, FILE* logFile, const L1ParserASTNode* nod
 			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.declare.followingContext, tokenStrings, tokenStringLengths);
 			fprintf(outputFile, "}");
 			break;
-	}
+	}*/
 }
 
 static char* LoadFileAsString(FILE* file)

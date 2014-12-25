@@ -144,6 +144,21 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 			case '&':
 				return L1LexerTokenTypeAmpersand;
 			case '#':
+				if (strncmp(self->input, "let", 3) == 0)
+				{
+					self->input += 3;
+					return L1LexerTokenTypeLet;
+				}
+				if (strncmp(self->input, "self", 4) == 0)
+				{
+					self->input += 3;
+					return L1LexerTokenTypeSelf;
+				}
+				if (strncmp(self->input, "universe", 8) == 0)
+				{
+					self->input += 3;
+					return L1LexerTokenTypeUniverse;
+				}
 				if (strncmp(self->input, "declare", 7) == 0)
 				{
 					self->input += 7;
@@ -251,8 +266,8 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 						['&'] = 1,
 						['#'] = 1,
 						[','] = 1,
-						['['] = 1,
-						[']'] = 1,
+						['{'] = 1,
+						['}'] = 1,
 						['\0'] = 1,
 					};
 					do

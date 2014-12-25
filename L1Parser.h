@@ -15,17 +15,22 @@ enum L1ParserASTNodeType
 	L1ParserASTNodeTypeOverload,
 	
 	L1ParserASTNodeTypeAssign,
-	L1ParserASTNodeTypeDefine,
+	L1ParserASTNodeTypeLet,
 	L1ParserASTNodeTypeAnnotate,
 	
 	L1ParserASTNodeTypeLambda,
 	L1ParserASTNodeTypePi,
+	L1ParserASTNodeTypeADT,
 	
 	L1ParserASTNodeTypeUnderscore,
 	
 	L1ParserASTNodeTypeCall,
 	
-	L1ParserASTNodeTypeDeclare
+	L1ParserASTNodeTypeSelf,
+	L1ParserASTNodeTypeUniverse,
+
+	L1ParserASTNodeTypeArgumentList,
+	L1ParserASTNodeTypeConstructorList,
 };
 typedef enum L1ParserASTNodeType L1ParserASTNodeType;
 
@@ -64,12 +69,6 @@ struct L1ParserASTNode
 		}assign;
 		struct
 		{
-			size_t destination;
-			size_t source;
-			size_t followingContext;
-		}define;
-		struct
-		{
 			size_t value;
 			size_t type;
 		}annotate;
@@ -85,14 +84,35 @@ struct L1ParserASTNode
 		}pi;
 		struct
 		{
+			size_t constructorList;
+		}adt;
+		struct
+		{
 			size_t callee;
 			size_t argument;
 		}call;
 		struct
 		{
 			size_t destination;
+			size_t argumentList;
+			size_t source;
 			size_t followingContext;
-		}declare;
+		}let;
+		struct
+		{
+			size_t previousArgumentList;
+			size_t argument;
+		}argumentList;
+		struct
+		{
+			size_t previousConstructorList;
+			size_t constructorName;
+			size_t argumentList;
+		}constructorList;
+		struct
+		{
+			size_t level;
+		}universe;
 	}data;
 };
 

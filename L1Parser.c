@@ -2,8 +2,8 @@
 
 static void PushNode(L1Parser* self, const L1ParserASTNode* node)
 {
-	L1ArrayPush(& self->syntaxTreeNodes, node, sizeof(L1ParserASTNode));
-	size_t location = L1ArrayGetElementCount(& self->syntaxTreeNodes);
+	if (node) L1ArrayPush(& self->syntaxTreeNodes, node, sizeof(L1ParserASTNode));
+	size_t location = node ? L1ArrayGetElementCount(& self->syntaxTreeNodes) : 0;
 	L1ArrayPush(& self->locationStack, & location, sizeof(size_t));
 }
 

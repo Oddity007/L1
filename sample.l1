@@ -35,3 +35,9 @@ branch
 const = (T : *) -> (a : T) -> (b : T) -> a;
 id = (a : *) -> a;
 id : (a : *) => *
+
+/*__letrec map f = 
+	[] -> [] &
+	[x, ...xs] -> [f x, ... map f xs];
+__let nats = {zero, succ (x : __self)};
+*/
