@@ -156,7 +156,7 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 				}
 				if (strncmp(self->input, "universe", 8) == 0)
 				{
-					self->input += 3;
+					self->input += 8;
 					return L1LexerTokenTypeUniverse;
 				}
 				if (strncmp(self->input, "declare", 7) == 0)

@@ -3,13 +3,18 @@
 //idt = (a : *) => *;
 //id : idt
 
+/*(
+	(x : #universe 0)
+	->
+	x
+)*/
+
 /*
 #enum nats
 {
 	zero :: nats,
 	succ :: (x : nats) => nats
 }
-
 */
 
 /*
@@ -18,7 +23,6 @@ nats ::
 	zero :: nats;
 	succ :: (_ : nats) => nats;
 }
-
 */
 
 /*
@@ -28,13 +32,13 @@ nats ::
 )
 */
 
-branch
+/*branch
 	= 0 -> a -> b -> a
-	& 1 -> a -> b -> b;
-* = __universe 0;
+	& 1 -> a -> b -> b;*/
+* = #universe 0;
 const = (T : *) -> (a : T) -> (b : T) -> a;
 id = (a : *) -> a;
-id : (a : *) => *
+id //: (a : *) => *
 
 /*__letrec map f = 
 	[] -> [] &

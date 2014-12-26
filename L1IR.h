@@ -33,10 +33,15 @@ enum L1IRSlotType
 
 	L1IRSlotTypeCall, //callee (16), argument (16)
 
-	//L1IRSlotTypeADT, //captures (16), prototype block address (hi16, lo16)
-	//L1IRSlotTypeADTConstructor, //adt (16), tag (16), argtype (16)
-	//L1IRSlotTypeADTConstructorOf, //adt (16), tag (16)
-	//L1IRSlotTypeADTConstructedOf, //adt (16), tag (16), arg (16)
+	/*L1IRSlotTypeADT, //captures (16), prototype block address (hi16, lo16)
+	L1IRSlotTypeConstructor, //adt (16), tag (16), argtype (16)
+	L1IRSlotTypeConstructorOf, //adt (16), tag (16)
+	L1IRSlotTypeConstructedOf, //adt (16), tag (16), arg (16)
+
+	L1IRSlotTypeBeginDeconstruction, //val (16)
+	L1IRSlotTypeDeconstruct, //dcons (16), tag (16), handler (16)
+	L1IRSlotTypeDeconstructed, //val (16)
+	L1IRSlotTypeEndDeconstruction, //dcons (16)*/
 
 	L1IRSlotTypeLast = L1IRSlotTypeCall
 };

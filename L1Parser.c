@@ -41,8 +41,8 @@ L1ParserStatusType L1ParserParse(L1Parser* self, L1LexerTokenType tokenType, con
 	self->currentTokenIndex ++;
 	assert(L1ArrayGetElementCount(& self->symbolStack) > 0);
 	unsigned short top;
-	L1ArrayPeek(& self->symbolStack, & top, sizeof(unsigned short));
-	
+	L1ArrayPeek(& self->symbolStack, & top, sizeof(unsigned short));	
+
 	while (top >= NonterminalOffset)
 	{
 		L1ArrayPop(& self->symbolStack, & top, sizeof(unsigned short));

@@ -15,7 +15,7 @@ enum L1ParserASTNodeType
 	L1ParserASTNodeTypeOverload,
 	
 	L1ParserASTNodeTypeAssign,
-	L1ParserASTNodeTypeLet,
+	//L1ParserASTNodeTypeLet,
 	L1ParserASTNodeTypeAnnotate,
 	
 	L1ParserASTNodeTypeLambda,
@@ -91,13 +91,13 @@ struct L1ParserASTNode
 			size_t callee;
 			size_t argument;
 		}call;
-		struct
+		/*struct
 		{
 			size_t destination;
 			size_t argumentList;
 			size_t source;
 			size_t followingContext;
-		}let;
+		}let;*/
 		struct
 		{
 			size_t previousArgumentList;

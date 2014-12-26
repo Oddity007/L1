@@ -64,11 +64,11 @@ local Rules = {
 		
 		{type = "Exp", "ClosedExp", "ExpFollow"},
 
-		{type = "Exp", "Let", "Identifier", "ClosedExpList", "SingleEqual", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushLet},
+		--{type = "Exp", "Let", "Identifier", "ClosedExpList", "SingleEqual", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushLet},
 		{type = "ExpFollow", "SingleEqual", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushAssign},
 
 		{type = "ExpFollow", "SingleColon", "ChainedClosedExp", action = Actions.pushAnnotate},
-		{type = "ExpFollow", ""},
+		{type = "ExpFollow", "ChainedClosedExpFollow"},
 		
 		{type = "ChainedClosedExp", "ClosedExp", "ChainedClosedExpFollow"},
 		{type = "ChainedClosedExpFollow", "SingleBarArrow", "ChainedClosedExp", action = Actions.pushLambda},
@@ -84,13 +84,13 @@ local Rules = {
 		{type = "ChainedClosedExpCallFollow", "ChainedClosedExpAmpersandFollow"},
 		{type = "ChainedClosedExpCallFollow", ""},
 
-		{type = "ClosedExpList", "ClosedExp", "ClosedExpList", action = Actions.pushArgumentList},
+		--[[{type = "ClosedExpList", "ClosedExp", "ClosedExpList", action = Actions.pushArgumentList},
 		{type = "ClosedExpList", "", action = Actions.pushNull},
 
 		{type = "ConsDefList", "Identifier", "ClosedExpList", "ConsDefListFollow", action = Actions.pushConstructorList},
 		{type = "ConsDefList", "", action = Actions.pushNull},
 		{type = "ConsDefListFollow", "Comma", "ConsDefList"},
-		{type = "ConsDefListFollow", ""},
+		{type = "ConsDefListFollow", ""},]]
 		
 		{type = "ClosedExp", "Dollar", "ClosedExp", action =  Actions.pushEvaluateArgument},
 		{type = "ClosedExp", "Identifier", action = Actions.pushIdentifier},
@@ -98,7 +98,7 @@ local Rules = {
 		{type = "ClosedExp", "Natural", action = Actions.pushNatural},
 		{type = "ClosedExp", "Self", action = Actions.pushSelf},
 		{type = "ClosedExp", "Universe", "Natural", action = Actions.pushUniverse},
-		{type = "ClosedExp", "OpenBracket", "ConsDefList", "CloseBracket", action = Actions.pushADT},
+		--{type = "ClosedExp", "OpenBracket", "ConsDefList", "CloseBracket", action = Actions.pushADT},
 		{type = "ClosedExp", "OpenParenthesis", "Exp", "CloseParenthesis"},
 }
 
