@@ -116,7 +116,7 @@ static bool SlotTypeArgumentIsLocalAddress(L1IRSlotType type, uint8_t i)
 
 //Garbage Collection / Normalization / Deadcode Eliminator / Stack Compaction
 
-static void CalculateNormalizedOrderings(L1IRSlot* slots, uint16_t* slotRemappings, uint16_t slotStart, uint16_t* localAddress, uint16_t* entryIndex)
+/*static void CalculateNormalizedOrderings(L1IRSlot* slots, uint16_t* slotRemappings, uint16_t slotStart, uint16_t* localAddress, uint16_t* entryIndex)
 {
 	if (*localAddress < slotStart) return;
 	L1IRSlotType type = L1IRExtractSlotType(slots[*localAddress]);
@@ -161,6 +161,73 @@ static uint16_t CompactLocalGarbage(L1IRSlot* slots, uint16_t slotStart, uint16_
 	}
 	free(slotRemappings);
 	return normalizedSlotCount;
+}*/
+
+static uint16_t CompactLocalGarbage(L1IRSlot* slots, uint16_t slotStart, uint16_t slotCount, uint16_t* roots, size_t rootCount)
+{
+	//if (rootCount == 0 or slotCount == slotStart) return slotStart;
+	//assert (slotCount > slotStart);
+	uint16_t maxUsedSlotCount = slotStart;
+	//Mark roots
+	for (size_t i = 0; i < rootCount; i++)
+	{
+		assert (roots[i] < slotCount);
+		if (roots[i] + 1 > maxUsedSlotCount) maxUsedSlotCount = roots[i] + 1;
+		L1IRSetSlotAnnotation(slots + roots[i], 1);
+	}
+
+	if (maxUsedSlotCount == slotStart) return slotStart;
+
+	uint16_t finalSlotCount = slotStart;
+
+	//Propagate retain marks
+	for (uint16_t i = maxUsedSlotCount; i-- > slotStart;)
+	{
+		L1IRSlot slot = slots[i];
+		if (not L1IRExtractSlotAnnotation(slot)) continue;
+		finalSlotCount++;
+		L1IRSlotType type = L1IRExtractSlotType(slot);
+		for (uint8_t j = 0; j < 3; j++)
+		{
+			if (not SlotTypeArgumentIsLocalAddress(type, j)) continue;
+			uint16_t operand = L1IRExtractSlotOperand(slot, j);
+			if (operand < slotStart) continue;
+			L1IRSetSlotAnnotation(slots + operand, 1);
+		}
+	}
+
+	uint16_t* slotRemappings = malloc(sizeof(uint16_t) * (maxUsedSlotCount - slotStart));
+
+	uint16_t finalSlotIndex = slotStart;
+	
+	//Compact reachable memory and fix references
+	for (uint16_t i = slotStart; i < maxUsedSlotCount; i++)
+	{
+		L1IRSlot slot = slots[i];
+		slotRemappings[i - slotStart] = UINT16_MAX;
+		if (not L1IRExtractSlotAnnotation(slot)) continue;
+		uint16_t operands[3] = {0, 0, 0};
+		L1IRSlotType type = L1IRExtractSlotType(slot);
+		for (uint8_t j = 0; j < 3; j++)
+		{
+			operands[j] = L1IRExtractSlotOperand(slot, j);
+			if (not SlotTypeArgumentIsLocalAddress(type, j)) continue;
+			operands[j] = slotRemappings[operands[j] - slotStart];
+		}
+		slotRemappings[i - slotStart] = finalSlotIndex;
+		slots[finalSlotIndex] = L1IRMakeSlot(type, operands[0], operands[1], operands[2]);
+		finalSlotIndex++;
+	}
+	
+	//Update root handles
+	for (size_t i = 0; i < rootCount; i++)
+	{
+		roots[i] = slotRemappings[roots[i] - slotStart];
+	}
+	
+	free(slotRemappings);
+
+	return finalSlotCount;
 }
 
 static void PushGCBarrier(L1IRGlobalState* self, L1IRLocalState* localState)
@@ -636,7 +703,7 @@ static uint16_t L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* l
 	
 	localState->callDepth--;
 
-	PopGCBarrier(self, localState, & resultLocalAddress, 0);
+	PopGCBarrier(self, localState, & resultLocalAddress, 1);
 
 	return resultLocalAddress;
 }

@@ -238,11 +238,13 @@ static L1IRLocalAddress GenerateExpression(GenerationState* generationState, siz
 	abort();
 }
 
-L1IRLocalAddress L1GenerateIR(L1IRGlobalState* globalState, L1IRLocalState* localState, const L1ParserASTNode* nodes, size_t nodeCount, size_t rootNodeIndex, const unsigned char* const* tokenStrings, const size_t* tokenStringLengths, size_t tokenStringCount)
+L1IRGlobalAddress L1GenerateIR(L1IRGlobalState* globalState, const L1ParserASTNode* nodes, size_t nodeCount, size_t rootNodeIndex, const unsigned char* const* tokenStrings, const size_t* tokenStringLengths, size_t tokenStringCount)
 {
+	L1IRLocalState localState;
+	L1IRLocalStateInitialize(& localState);
 	GenerationState generationState;
 	generationState.globalState = globalState;
-	generationState.localState = localState;
+	generationState.localState = & localState;
 	generationState.nodes = nodes;
 	generationState.nodeCount = nodeCount;
 	generationState.tokenStrings = tokenStrings;
@@ -253,12 +255,15 @@ L1IRLocalAddress L1GenerateIR(L1IRGlobalState* globalState, L1IRLocalState* loca
 	L1ArrayInitialize(& generationState.captureStates);
 	L1ArrayInitialize(& generationState.capturedBindingPairIndices);
 
-	L1IRLocalAddress localAddress = GenerateExpression(& generationState, rootNodeIndex);
+	L1IRLocalAddress unitTypeLocalAddress = L1IRLocalStateCreateSlot(& localState, L1IRMakeSlot(L1IRSlotTypeUnitType, 0, 0, 0));
+	L1IRLocalAddress argumentLocalAddress = L1IRLocalStateCreateSlot(& localState, L1IRMakeSlot(L1IRSlotTypeArgument, 0, unitTypeLocalAddress, 0));
+	L1IRLocalAddress resultLocalAddress = GenerateExpression(& generationState, rootNodeIndex);
+	L1IRGlobalAddress globalAddress = L1IRGlobalStateCreateBlock(globalState, L1IRGlobalStateBlockTypeLambda, L1ArrayGetElements(& localState.slots), resultLocalAddress + 1, argumentLocalAddress);
 
 	L1ArrayDeinitialize(& generationState.bindingPairs);
 	L1ArrayDeinitialize(& generationState.bindingStates);
 	L1ArrayDeinitialize(& generationState.captureStates);
 	L1ArrayDeinitialize(& generationState.capturedBindingPairIndices);
-
-	return localAddress;
+	L1IRLocalStateInitialize(& localState);
+	return globalAddress;
 }

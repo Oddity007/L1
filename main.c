@@ -169,11 +169,12 @@ typedef enum
 {
 	OutputTypeAST,
 	OutputTypeIR,
+	OutputTypeRun,
 }OutputType;
 
 int main(int argc, const char** argv)
 {
-	OutputType outputType = OutputTypeIR;
+	OutputType outputType = OutputTypeRun;
 	FILE* inputFile = NULL;
 	FILE* outputFile = stdout;
 	for (int i = 0; i < argc; i++)
@@ -183,6 +184,14 @@ int main(int argc, const char** argv)
 		if (strcmp(arg, "--ast") == 0)
 		{
 			outputType = OutputTypeAST;
+		}
+		else if (strcmp(arg, "--ir") == 0)
+		{
+			outputType = OutputTypeIR;
+		}
+		else if (strcmp(arg, "--run") == 0)
+		{
+			outputType = OutputTypeRun;
 		}
 		else if (strcmp(arg, "-i") == 0)
 		{
@@ -223,7 +232,6 @@ int main(int argc, const char** argv)
 	char* codeString = LoadFileAsString(inputFile);
 	
 	L1Lexer lexer;
-	//L1LexerInitialize(& lexer, "nats :: __universe 0;\nzero :: nats;\nsucc (x : nats) :: nats;\nconst = (%T : __universe 0) (a : T) (b : T) -> a;\nid = (a : __universe 0) -> a;\nbranch = (0 a b -> a & 1 a b -> b);\nid :(a : __universe 0) => __universe 0");
 	L1LexerInitialize(& lexer, codeString);
 	
 	L1Parser parser;
@@ -263,7 +271,7 @@ int main(int argc, const char** argv)
 							{
 								PrintAST(outputFile, stderr, L1ParserGetASTNodes(& parser), L1ParserGetASTNodeCount(& parser), L1ParserGetRootASTNodeIndex(& parser), L1ArrayGetElements(& tokenStrings), L1ArrayGetElements(& tokenStringLengths));
 							}
-							else if (outputType == OutputTypeIR)
+							else if (outputType == OutputTypeRun)
 							{
 								L1IRGlobalState globalState;
 								L1IRGlobalStateInitialize(& globalState);
@@ -271,7 +279,9 @@ int main(int argc, const char** argv)
 								L1IRLocalStateInitialize(& localState);
 
 								fputs("\nRunning block...\n", stderr);
-								L1IRLocalAddress resultLocalAddress = L1GenerateIR(& globalState, & localState, L1ParserGetASTNodes(& parser), L1ParserGetASTNodeCount(& parser), L1ParserGetRootASTNodeIndex(& parser), L1ArrayGetElements(& tokenStrings), L1ArrayGetElements(& tokenStringLengths), L1ArrayGetElementCount(& tokenStrings));
+								L1IRGlobalAddress globalAddress = L1GenerateIR(& globalState, L1ParserGetASTNodes(& parser), L1ParserGetASTNodeCount(& parser), L1ParserGetRootASTNodeIndex(& parser), L1ArrayGetElements(& tokenStrings), L1ArrayGetElements(& tokenStringLengths), L1ArrayGetElementCount(& tokenStrings));
+								L1IRLocalAddress unitLocalAddress = L1IRLocalStateCreateSlot(& localState, L1IRMakeSlot(L1IRSlotTypeUnit, 0, 0, 0));
+								uint16_t resultLocalAddress = L1IRGlobalStateCall(& globalState, & localState, globalAddress, unitLocalAddress);
 								fprintf(stderr, "result: #%u\n", (unsigned) resultLocalAddress);
 								for (size_t i = 0; i < L1ArrayGetElementCount(& localState.slots); i++)
 								{
@@ -322,41 +332,6 @@ int main(int argc, const char** argv)
 	L1LexerDeinitialize(& lexer);
 	
 	free(codeString);
-
-	/*
-	//fputs("\nNow testing IR...\n", stderr);
-	
-	L1IRGlobalState globalState;
-	L1IRGlobalStateInitialize(& globalState);
-	L1IRLocalState localState;
-	L1IRLocalStateInitialize(& localState);
-
-	const L1IRSlot slots[] = 
-	{
-		L1IRMakeSlot(L1IRSlotTypeUnitType, 0, 0, 0),
-		L1IRMakeSlot(L1IRSlotTypeArgument, 0, 0, 0),
-	};
-	const uint16_t slotCount = sizeof(slots) / sizeof(slots[0]);
-	fputs("\nCreating block\n", stderr);
-	L1IRGlobalAddress simpleBlockAddress = L1IRGlobalStateCreateBlock(& globalState, L1IRGlobalStateBlockTypeLambda, slots, slotCount, 1);
-	//L1ArrayPush(& computationBuffer.slots, (L1IRSlot[1]){L1IRMakeSlot(L1IRSlotTypeUnit, 0, 0, 0)}, sizeof(L1IRSlot));
-	L1IRLocalAddress unitLocalAddress = L1IRLocalStateCreateSlot(& localState, L1IRMakeSlot(L1IRSlotTypeUnit, 0, 0, 0));
-	fputs("\nRunning block...\n", stderr);
-	uint16_t resultLocalAddress = L1IRGlobalStateCall(& globalState, & localState, simpleBlockAddress, unitLocalAddress);
-	L1IRLocalAddress resultLocalAddress = L1GenerateIR(& globalState, & localState, const L1ParserASTNode* nodes, size_t nodeCount, size_t rootNodeIndex, const unsigned char* const* tokenStrings, const size_t* tokenStringLengths, size_t tokenStringCount);
-	//assert(resultLocalAddress);
-	//assert(L1ArrayGetElementCount(& computationSlots) == 1);
-	//assert(L1IRExtractSlotType(* (const L1IRSlot*) L1ArrayGetElements(& computationSlots)) == L1IRSlotTypeUnit);
-	fprintf(stderr, "result: #%u\n", (unsigned) resultLocalAddress);
-	for (size_t i = 0; i < L1ArrayGetElementCount(& localState.slots); i++)
-	{
-		L1IRSlot slot = ((const L1IRSlot*) L1ArrayGetElements(& localState.slots))[i];
-		fprintf(stderr, "#%u: %u (%u, %u, %u)\n", (unsigned) i, (unsigned) L1IRExtractSlotType(slot), (unsigned) L1IRExtractSlotOperand(slot, 0), (unsigned) L1IRExtractSlotOperand(slot, 1), (unsigned) L1IRExtractSlotOperand(slot, 2));
-	}
-
-
-	L1IRLocalStateDeinitialize(& localState);
-	L1IRGlobalStateDeinitialize(& globalState);*/
 	
 	return 0;
 }
