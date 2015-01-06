@@ -1,5 +1,7 @@
 #include "L1Parser.h"
 
+#include <stdio.h>
+
 static void PushNode(L1Parser* self, const L1ParserASTNode* node)
 {
 	if (node) L1ArrayPush(& self->syntaxTreeNodes, node, sizeof(L1ParserASTNode));
@@ -10,6 +12,7 @@ static void PushNode(L1Parser* self, const L1ParserASTNode* node)
 static size_t PopNodeLocation(L1Parser* self)
 {
 	size_t location = 0;
+	assert (L1ArrayGetElementCount(& self->locationStack) > 0);
 	L1ArrayPop(& self->locationStack, & location, sizeof(size_t));
 	return location;
 }
@@ -41,10 +44,11 @@ L1ParserStatusType L1ParserParse(L1Parser* self, L1LexerTokenType tokenType, con
 	self->currentTokenIndex ++;
 	assert(L1ArrayGetElementCount(& self->symbolStack) > 0);
 	unsigned short top;
-	L1ArrayPeek(& self->symbolStack, & top, sizeof(unsigned short));	
+	L1ArrayPeek(& self->symbolStack, & top, sizeof(unsigned short));
 
 	while (top >= NonterminalOffset)
 	{
+		assert (L1ArrayGetElementCount(& self->symbolStack) > 0);
 		L1ArrayPop(& self->symbolStack, & top, sizeof(unsigned short));
 		if (top < ActionOffset)
 		{
@@ -67,12 +71,14 @@ L1ParserStatusType L1ParserParse(L1Parser* self, L1LexerTokenType tokenType, con
 			HandleAction(self, top, tokenString, tokenStringLength);
 		}
 		
+		assert (L1ArrayGetElementCount(& self->symbolStack) > 0);
 		L1ArrayPeek(& self->symbolStack, & top, sizeof(unsigned short));
 	}
 	
 	{
 		if (top == (unsigned short) tokenType)
 		{
+			assert (L1ArrayGetElementCount(& self->symbolStack) > 0);
 			L1ArrayPop(& self->symbolStack, NULL, sizeof(unsigned short));
 			if (tokenType == L1LexerTokenTypeDone)
 				return L1ParserStatusTypeDone;

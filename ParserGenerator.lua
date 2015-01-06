@@ -84,13 +84,13 @@ local Rules = {
 		{type = "ChainedClosedExpCallFollow", "ChainedClosedExpAmpersandFollow"},
 		{type = "ChainedClosedExpCallFollow", ""},
 
-		--[[{type = "ClosedExpList", "ClosedExp", "ClosedExpList", action = Actions.pushArgumentList},
+		{type = "ClosedExpList", "ClosedExp", "ClosedExpList", action = Actions.pushArgumentList},
 		{type = "ClosedExpList", "", action = Actions.pushNull},
 
-		{type = "ConsDefList", "Identifier", "ClosedExpList", "ConsDefListFollow", action = Actions.pushConstructorList},
+		{type = "ConsDefList", "ClosedExp", "ClosedExpList", "ConsDefListFollow", action = Actions.pushConstructorList},
 		{type = "ConsDefList", "", action = Actions.pushNull},
 		{type = "ConsDefListFollow", "Comma", "ConsDefList"},
-		{type = "ConsDefListFollow", ""},]]
+		{type = "ConsDefListFollow", "", action = Actions.pushNull},
 		
 		{type = "ClosedExp", "Dollar", "ClosedExp", action =  Actions.pushEvaluateArgument},
 		{type = "ClosedExp", "Identifier", action = Actions.pushIdentifier},
@@ -98,7 +98,7 @@ local Rules = {
 		{type = "ClosedExp", "Natural", action = Actions.pushNatural},
 		{type = "ClosedExp", "Self", action = Actions.pushSelf},
 		{type = "ClosedExp", "Universe", "Natural", action = Actions.pushUniverse},
-		--{type = "ClosedExp", "OpenBracket", "ConsDefList", "CloseBracket", action = Actions.pushADT},
+		{type = "ClosedExp", "OpenBracket", "ConsDefList", "CloseBracket", action = Actions.pushADT},
 		{type = "ClosedExp", "OpenParenthesis", "Exp", "CloseParenthesis"},
 }
 

@@ -105,6 +105,14 @@ static const uint8_t SlotArgumentDescriptions[L1IRSlotTypeLast + 1] =
 	[L1IRSlotTypeSigma] = NodeArgumentMask(0),
 	[L1IRSlotTypeProjectPair] = NodeArgumentMask(0),
 	[L1IRSlotTypeCall] = NodeArgumentMask(0) | NodeArgumentMask(1),
+	[L1IRSlotTypeADT] = NodeArgumentMask(0),
+	[L1IRSlotTypeConstructor] = NodeArgumentMask(0) | NodeArgumentMask(2),
+	[L1IRSlotTypeConstructorOf] = NodeArgumentMask(0),
+	[L1IRSlotTypeConstructedOf] = NodeArgumentMask(0) | NodeArgumentMask(2),
+	[L1IRSlotTypeBeginDeconstruction] = NodeArgumentMask(0),
+	[L1IRSlotTypeDeconstruct] = NodeArgumentMask(0) | NodeArgumentMask(2),
+	[L1IRSlotTypeDeconstructed] = NodeArgumentMask(0),
+	[L1IRSlotTypeEndDeconstruction] = NodeArgumentMask(0),
 };
 
 static bool SlotTypeArgumentIsLocalAddress(L1IRSlotType type, uint8_t i)
@@ -246,7 +254,7 @@ static void PopGCBarrier(L1IRGlobalState* self, L1IRLocalState* localState, uint
 	L1ArraySetElementCount(& localState->slots, barrierSlotCount, sizeof(L1IRSlot));
 }
 
-//Type equality (gets messy because it can be undecidable for dependent types)
+//Type equality (gets messy because it can be undecidable for dependent types).
 
 static bool AreEqual(L1IRGlobalState* self, L1IRLocalState* localState, uint16_t value1LocalAddress, uint16_t value2LocalAddress)
 {
@@ -366,10 +374,28 @@ static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState*
 		case L1IRSlotTypeUnit:
 		case L1IRSlotTypeUnitType:
 			break;
+		case L1IRSlotTypeConstructor:
+		case L1IRSlotTypeConstructorOf:
+		case L1IRSlotTypeConstructedOf:
+			abort();
+			break;
+		case L1IRSlotTypeBeginDeconstruction:
+			abort();
+			break;
+		case L1IRSlotTypeDeconstruct:
+			abort();
+			break;
+		case L1IRSlotTypeDeconstructed:
+			abort();
+			break;
+		case L1IRSlotTypeEndDeconstruction:
+			abort();
+			break;
 		case L1IRSlotTypeLambda:
 		case L1IRSlotTypePi:
 		case L1IRSlotTypePair:
 		case L1IRSlotTypeSigma:
+		case L1IRSlotTypeADT:
 			break;
 		case L1IRSlotTypeCapturedTupleType:
 		case L1IRSlotTypeCapturedTuple:
@@ -419,6 +445,14 @@ static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState*
 					case L1IRSlotTypeUnitType:
 					case L1IRSlotTypeCapturedTupleType:
 					case L1IRSlotTypeCapturedTuple:
+					case L1IRSlotTypeADT:
+					case L1IRSlotTypeConstructor:
+					case L1IRSlotTypeConstructorOf:
+					case L1IRSlotTypeConstructedOf:
+					case L1IRSlotTypeBeginDeconstruction:
+					case L1IRSlotTypeDeconstruct:
+					case L1IRSlotTypeDeconstructed:
+					case L1IRSlotTypeEndDeconstruction:
 						abort();
 						break;
 					case L1IRSlotTypeArgument:
@@ -556,6 +590,20 @@ static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* local
 				PopGCBarrier(self, localState, NULL, 0);
 				return isOfType;
 			}
+		case L1IRSlotTypeADT:
+			abort();
+			break;
+		case L1IRSlotTypeConstructor:
+		case L1IRSlotTypeConstructorOf:
+		case L1IRSlotTypeConstructedOf:
+			abort();
+			break;
+		case L1IRSlotTypeBeginDeconstruction:
+		case L1IRSlotTypeDeconstruct:
+		case L1IRSlotTypeDeconstructed:
+		case L1IRSlotTypeEndDeconstruction:
+			abort();
+			break;
 	}
 	return false;
 }
@@ -676,6 +724,9 @@ static uint16_t L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* l
 						case L1IRGlobalStateBlockTypeSigma:
 							resultType = L1IRSlotTypeSigma;
 							break;
+						case L1IRGlobalStateBlockTypeADT:
+							resultType = L1IRSlotTypeADT;
+							break;
 					}
 
 					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(resultType, captureLocalAddress, SplitGlobalAddress(calleeAddress, 0), SplitGlobalAddress(calleeAddress, 1)));
@@ -692,6 +743,14 @@ static uint16_t L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* l
 			case L1IRSlotTypePair:
 			case L1IRSlotTypeSigma:
 			case L1IRSlotTypeProjectPair:
+			case L1IRSlotTypeADT:
+			case L1IRSlotTypeConstructor:
+			case L1IRSlotTypeConstructorOf:
+			case L1IRSlotTypeConstructedOf:
+			case L1IRSlotTypeBeginDeconstruction:
+			case L1IRSlotTypeDeconstruct:
+			case L1IRSlotTypeDeconstructed:
+			case L1IRSlotTypeEndDeconstruction:
 				mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(type, operands[0], operands[1], operands[2]));
 				break;
 		}

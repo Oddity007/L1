@@ -217,6 +217,8 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 					self->input++;
 					while (* self->input)
 					{
+						if (self->input[0] == '\n')
+							self->currentLineNumber++;
 						if (self->input[0] == '*' and self->input[1] == '/')
 						{
 							self->input += 2;

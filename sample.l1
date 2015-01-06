@@ -35,10 +35,23 @@ nats ::
 /*branch
 	= 0 -> a -> b -> a
 	& 1 -> a -> b -> b;*/
-* = #universe 0;
+/** = #universe 0;
 const = (T : *) -> (a : T) -> (b : T) -> a;
 id = (a : *) -> a;
-id //: (a : *) => *
+id //: (a : *) => **/
+
+* = #universe 0;
+Nat = {zero, succ (x : #self)};
+List = (T : *) -> {nil, cons (x : T) (xs: #self)};
+length = (T : *) ->
+(
+	length = #self;
+	($ nil -> $ zero) &
+	(($cons x xs) -> ($succ (length xs)))
+	//((($nil : List T) -> ($zero : Nat)) &
+	//(($cons x xs : List T) -> ($succ (length xs) : Nat)))
+);
+length
 
 /*__letrec map f = 
 	[] -> [] &
