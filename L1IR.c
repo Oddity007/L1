@@ -46,7 +46,9 @@ static uint16_t SplitGlobalAddress(L1IRGlobalAddress address, uint16_t part)
 
 static uint16_t L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* localState, uint32_t calleeAddress, L1IRAnnotatedLocalAddress argumentLocalAddress, L1IRAnnotatedLocalAddress captureLocalAddress, uint16_t* finalArgumentLocalAddress);
 
-static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState* localState, L1IRSlot slot);
+//static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState* localState, L1IRSlot slot);
+
+static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* localState, uint16_t valueLocalAddress, uint16_t typeLocalAddress);
 
 ///State Boilerplate
 
@@ -87,37 +89,40 @@ void L1IRGlobalStateDeinitialize(L1IRGlobalState* self)
 
 //Node Graph Traversal Metadata
 
-#define NodeArgumentMask(i) ((uint8_t) 1 << i)
+#define NodeMask(i) ((uint8_t) 1 << i)
 
 static const uint8_t SlotArgumentDescriptions[L1IRSlotTypeLast + 1] =
 {
 	[L1IRSlotTypeNone] = 0,
-	[L1IRSlotTypeArgument] = NodeArgumentMask(1),
+	[L1IRSlotTypeArgument] = NodeMask(1),
 	[L1IRSlotTypeCaptured] = 0,
 	[L1IRSlotTypeSelf] = 0,
 	[L1IRSlotTypeUnit] = 0,
 	[L1IRSlotTypeUnitType] = 0,
-	[L1IRSlotTypeCapturedTupleType] = NodeArgumentMask(0) | NodeArgumentMask(1),
-	[L1IRSlotTypeCapturedTuple] = NodeArgumentMask(0) | NodeArgumentMask(1),
-	[L1IRSlotTypeLambda] = NodeArgumentMask(0),
-	[L1IRSlotTypePi] = NodeArgumentMask(0),
-	[L1IRSlotTypePair] = NodeArgumentMask(0) | NodeArgumentMask(1),
-	[L1IRSlotTypeSigma] = NodeArgumentMask(0),
-	[L1IRSlotTypeProjectPair] = NodeArgumentMask(0),
-	[L1IRSlotTypeCall] = NodeArgumentMask(0) | NodeArgumentMask(1),
-	[L1IRSlotTypeADT] = NodeArgumentMask(0),
-	[L1IRSlotTypeConstructor] = NodeArgumentMask(0) | NodeArgumentMask(2),
-	[L1IRSlotTypeConstructorOf] = NodeArgumentMask(0),
-	[L1IRSlotTypeConstructedOf] = NodeArgumentMask(0) | NodeArgumentMask(2),
-	[L1IRSlotTypeBeginDeconstruction] = NodeArgumentMask(0),
-	[L1IRSlotTypeDeconstruct] = NodeArgumentMask(0) | NodeArgumentMask(2),
-	[L1IRSlotTypeDeconstructed] = NodeArgumentMask(0),
-	[L1IRSlotTypeEndDeconstruction] = NodeArgumentMask(0),
+	[L1IRSlotTypeCapturedTupleType] = NodeMask(0) | NodeMask(1),
+	[L1IRSlotTypeCapturedTuple] = NodeMask(0) | NodeMask(1),
+	[L1IRSlotTypeLambda] = NodeMask(0),
+	[L1IRSlotTypePi] = NodeMask(0),
+	[L1IRSlotTypePair] = NodeMask(0) | NodeMask(1),
+	[L1IRSlotTypeSigma] = NodeMask(0),
+	[L1IRSlotTypeProjectPair] = NodeMask(0),
+	[L1IRSlotTypeCall] = NodeMask(0) | NodeMask(1),
+	[L1IRSlotTypeADT] = NodeMask(0),
+	[L1IRSlotTypeConstructor] = NodeMask(0) | NodeMask(2),
+	[L1IRSlotTypeConstructorOf] = NodeMask(0),
+	[L1IRSlotTypeConstructedOf] = NodeMask(0) | NodeMask(2),
+	[L1IRSlotTypeDeconstruct] = NodeMask(0) | NodeMask(1) | NodeMask(2),
 };
 
 static bool SlotTypeArgumentIsLocalAddress(L1IRSlotType type, uint8_t i)
 {
-	return 0 not_eq (SlotArgumentDescriptions[(uint8_t) type] & NodeArgumentMask(i));
+	assert (i < 3);
+	return 0 not_eq (SlotArgumentDescriptions[(uint8_t) type] & NodeMask(i));
+}
+
+static bool IsImplicitRoot(L1IRSlotType type)
+{
+	return 0 not_eq (SlotArgumentDescriptions[(uint8_t) type] & NodeMask(3));
 }
 
 #undef NodeArgumentMask
@@ -192,9 +197,9 @@ static uint16_t CompactLocalGarbage(L1IRSlot* slots, uint16_t slotStart, uint16_
 	for (uint16_t i = maxUsedSlotCount; i-- > slotStart;)
 	{
 		L1IRSlot slot = slots[i];
-		if (not L1IRExtractSlotAnnotation(slot)) continue;
-		finalSlotCount++;
 		L1IRSlotType type = L1IRExtractSlotType(slot);
+		if (not IsImplicitRoot(type) and not L1IRExtractSlotAnnotation(slot)) continue;
+		finalSlotCount++;
 		for (uint8_t j = 0; j < 3; j++)
 		{
 			if (not SlotTypeArgumentIsLocalAddress(type, j)) continue;
@@ -213,9 +218,9 @@ static uint16_t CompactLocalGarbage(L1IRSlot* slots, uint16_t slotStart, uint16_
 	{
 		L1IRSlot slot = slots[i];
 		slotRemappings[i - slotStart] = UINT16_MAX;
-		if (not L1IRExtractSlotAnnotation(slot)) continue;
-		uint16_t operands[3] = {0, 0, 0};
 		L1IRSlotType type = L1IRExtractSlotType(slot);
+		if (not IsImplicitRoot(type) and not L1IRExtractSlotAnnotation(slot)) continue;
+		uint16_t operands[3] = {0, 0, 0};
 		for (uint8_t j = 0; j < 3; j++)
 		{
 			operands[j] = L1IRExtractSlotOperand(slot, j);
@@ -362,34 +367,42 @@ L1IRGlobalAddress L1IRGlobalStateCreateBlock(L1IRGlobalState* self, L1IRGlobalSt
 static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState* localState, L1IRSlot slot)
 {
 	const L1IRSlot* slots = L1ArrayGetElements(& localState->slots);
-
+	size_t slotCount = L1ArrayGetElementCount(& localState->slots);
+	
+	/*if (slotCount > 0)
+	{
+		L1IRSlot topSlot = slots[slotCount - 1];
+		switch (L1IRExtractSlotType(topSlot))
+		{
+			case L1IRSlotTypePatternMatchFailure:
+				return slotCount - 1;
+			default: break;
+		}
+	}*/
+	
 	switch (L1IRExtractSlotType(slot))
 	{
 		case L1IRSlotTypeNone:
 		case L1IRSlotTypeArgument:
 		case L1IRSlotTypeCaptured:
 		case L1IRSlotTypeSelf:
-			break;
+		case L1IRSlotTypeConstructedOf:
+		case L1IRSlotTypeConstructor:
 		case L1IRSlotTypeUniverse:
 		case L1IRSlotTypeUnit:
 		case L1IRSlotTypeUnitType:
 			break;
-		case L1IRSlotTypeConstructor:
 		case L1IRSlotTypeConstructorOf:
-		case L1IRSlotTypeConstructedOf:
-			abort();
-			break;
-		case L1IRSlotTypeBeginDeconstruction:
-			abort();
-			break;
-		case L1IRSlotTypeDeconstruct:
-			abort();
-			break;
-		case L1IRSlotTypeDeconstructed:
-			abort();
-			break;
-		case L1IRSlotTypeEndDeconstruction:
-			abort();
+			{
+				uint16_t adtLocalAddress = L1IRExtractSlotOperand(slot, 0);
+				L1IRSlot adtSlot;
+				while (L1IRExtractSlotType(adtSlot = slots[adtLocalAddress]) == L1IRSlotTypeConstructor)
+				{
+					if (L1IRExtractSlotOperand(adtSlot, 1) == L1IRExtractSlotOperand(slot, 1))
+						return adtLocalAddress;
+					adtLocalAddress = L1IRExtractSlotOperand(adtSlot, 0);
+				}
+			}
 			break;
 		case L1IRSlotTypeLambda:
 		case L1IRSlotTypePi:
@@ -419,6 +432,51 @@ static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState*
 				}
 				break;
 			}
+		case L1IRSlotTypeDeconstruct:
+			{
+				uint16_t constructedLocalAddress = L1IRExtractSlotOperand(slot, 0);
+				const L1IRSlot constructedSlot = slots[constructedLocalAddress];
+				uint16_t argumentAndResultTypePairLocalAddress = L1IRExtractSlotOperand(slot, 1);
+				const L1IRSlot argumentAndResultTypePairSlot = slots[argumentAndResultTypePairLocalAddress];
+				assert (L1IRExtractSlotType(argumentAndResultTypePairSlot) == L1IRSlotTypePair);
+				uint16_t argumentTypeLocalAddress = L1IRExtractSlotOperand(argumentAndResultTypePairSlot, 0);
+				uint16_t resultTypeLocalAddress = L1IRExtractSlotOperand(argumentAndResultTypePairSlot, 1);
+				
+				switch (L1IRExtractSlotType(constructedSlot))
+				{
+					case L1IRSlotTypeConstructedOf:
+						{
+							uint16_t handlerCapturedTupleLocalAddress = L1IRExtractSlotOperand(slot, 2);
+							L1IRSlot handlerCapturedTupleSlot = slots[handlerCapturedTupleLocalAddress];
+							
+							uint16_t adtLocalAddress = L1IRExtractSlotOperand(constructedSlot, 0);
+							L1IRSlot adtSlot = 0;
+							while (L1IRExtractSlotType(adtSlot = slots[adtLocalAddress]) == L1IRSlotTypeConstructor)
+							{
+								assert (L1IRExtractSlotType(handlerCapturedTupleSlot) == L1IRSlotTypeCapturedTuple);
+								uint16_t handlerLocalAddress = L1IRExtractSlotOperand(handlerCapturedTupleSlot, 1);
+								
+								if (L1IRExtractSlotOperand(adtSlot, 1) == L1IRExtractSlotOperand(constructedSlot, 1))
+								{
+									uint16_t capturedLocalAddress = L1IRExtractSlotOperand(adtSlot, 2);
+									uint16_t resultLocalAddress = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeCall, handlerLocalAddress, capturedLocalAddress, 0));
+									assert(L1IRGlobalStateIsOfType(self, localState, resultLocalAddress, resultTypeLocalAddress));
+									return resultLocalAddress;
+								}
+								adtLocalAddress = L1IRExtractSlotOperand(adtSlot, 0);
+								
+								handlerCapturedTupleLocalAddress = L1IRExtractSlotOperand(handlerCapturedTupleSlot, 0);
+								handlerCapturedTupleSlot = slots[handlerCapturedTupleLocalAddress];
+							}
+							
+							//assert(L1IRExtractSlotType(handlerCapturedTupleSlot) == L1IRSlotTypeUnit);
+							abort();
+						}
+					default:
+						abort();
+				}
+			}
+			break;
 		case L1IRSlotTypeCall:
 			{
 				const uint16_t calleeLocalAddress = L1IRExtractSlotOperand(slot, 0);
@@ -436,6 +494,12 @@ static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState*
 							PopGCBarrier(self, localState, & result, 1);
 							return result;
 						}
+					case L1IRSlotTypeConstructor:
+						{
+							uint16_t adtLocalAddress = L1IRExtractSlotOperand(calleeSlot, 0);
+							assert(L1IRGlobalStateIsOfType(self, localState, argumentLocalAddress, L1IRExtractSlotOperand(calleeSlot, 2)));
+							return L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeConstructedOf, adtLocalAddress, L1IRExtractSlotOperand(calleeSlot, 1), argumentLocalAddress));
+						}
 					case L1IRSlotTypeNone:
 					case L1IRSlotTypePi:
 					case L1IRSlotTypeUniverse:
@@ -446,21 +510,20 @@ static uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState*
 					case L1IRSlotTypeCapturedTupleType:
 					case L1IRSlotTypeCapturedTuple:
 					case L1IRSlotTypeADT:
-					case L1IRSlotTypeConstructor:
-					case L1IRSlotTypeConstructorOf:
 					case L1IRSlotTypeConstructedOf:
-					case L1IRSlotTypeBeginDeconstruction:
-					case L1IRSlotTypeDeconstruct:
-					case L1IRSlotTypeDeconstructed:
-					case L1IRSlotTypeEndDeconstruction:
 						abort();
 						break;
+					case L1IRSlotTypeDeconstruct:
+					case L1IRSlotTypeConstructorOf:
 					case L1IRSlotTypeArgument:
 					case L1IRSlotTypeCaptured:
 					case L1IRSlotTypeCall:
 					case L1IRSlotTypeProjectPair:
 					case L1IRSlotTypeSelf:
 						break;
+					/*case L1IRSlotTypePatternMatchFailure:
+						abort();
+						break;*/
 				}
 			}
 			break;
@@ -480,8 +543,9 @@ static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* local
 	switch (L1IRExtractSlotType(valueSlot))
 	{
 		case L1IRSlotTypeSelf:
+		/*case L1IRSlotTypePatternMatchFailure:
 			abort();
-			break;
+			break;*/
 		case L1IRSlotTypeCaptured:
 			return true;//Don't really like this, but w/e
 		case L1IRSlotTypeUniverse:
@@ -595,14 +659,20 @@ static bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* local
 			break;
 		case L1IRSlotTypeConstructor:
 		case L1IRSlotTypeConstructorOf:
-		case L1IRSlotTypeConstructedOf:
 			abort();
 			break;
-		case L1IRSlotTypeBeginDeconstruction:
+		case L1IRSlotTypeConstructedOf:
+			return AreEqual(self, localState, L1IRExtractSlotOperand(valueSlot, 0), typeLocalAddress);
 		case L1IRSlotTypeDeconstruct:
-		case L1IRSlotTypeDeconstructed:
-		case L1IRSlotTypeEndDeconstruction:
-			abort();
+			{
+				uint16_t constructedLocalAddress = L1IRExtractSlotOperand(valueSlot, 0);
+				const L1IRSlot constructedSlot = slots[constructedLocalAddress];
+				uint16_t argumentAndResultTypePairLocalAddress = L1IRExtractSlotOperand(valueSlot, 1);
+				const L1IRSlot argumentAndResultTypePairSlot = slots[argumentAndResultTypePairLocalAddress];
+				assert (L1IRExtractSlotType(argumentAndResultTypePairSlot) == L1IRSlotTypePair);
+				uint16_t resultTypeLocalAddress = L1IRExtractSlotOperand(argumentAndResultTypePairSlot, 1);
+				return AreEqual(self, localState, resultTypeLocalAddress, typeLocalAddress);
+			}
 			break;
 	}
 	return false;
@@ -651,6 +721,9 @@ static uint16_t L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* l
 		{
 			case L1IRSlotTypeNone:
 				break;
+			/*case L1IRSlotTypePatternMatchFailure:
+				abort();
+				break;*/
 			case L1IRSlotTypeArgument:
 				{
 					assert(operands[0] == 0);
@@ -747,10 +820,7 @@ static uint16_t L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* l
 			case L1IRSlotTypeConstructor:
 			case L1IRSlotTypeConstructorOf:
 			case L1IRSlotTypeConstructedOf:
-			case L1IRSlotTypeBeginDeconstruction:
 			case L1IRSlotTypeDeconstruct:
-			case L1IRSlotTypeDeconstructed:
-			case L1IRSlotTypeEndDeconstruction:
 				mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(type, operands[0], operands[1], operands[2]));
 				break;
 		}

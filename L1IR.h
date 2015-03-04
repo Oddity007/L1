@@ -39,13 +39,11 @@ enum L1IRSlotType
 	L1IRSlotTypeConstructor, //adt (16), tag (16), argtype (16)
 	L1IRSlotTypeConstructorOf, //adt (16), tag (16)
 	L1IRSlotTypeConstructedOf, //adt (16), tag (16), arg (16)
+	L1IRSlotTypeDeconstruct, //cted (16), argument/result type pair (16), case handlers (16)
+	//L1IRSlotTypeAssertUnary, //unary assertion type (16), src (16)
+	//L1IRSlotTypeAssertBinary, //binary assertion type (16), src1 (16), src2 (16)
 
-	L1IRSlotTypeBeginDeconstruction, //val (16)
-	L1IRSlotTypeDeconstruct, //dcons (16), tag (16), handler (16)
-	L1IRSlotTypeDeconstructed, //val (16)
-	L1IRSlotTypeEndDeconstruction, //dcons (16)
-
-	L1IRSlotTypeLast = L1IRSlotTypeEndDeconstruction,
+	L1IRSlotTypeLast = L1IRSlotTypeDeconstruct,
 };
 
 typedef enum L1IRSlotType L1IRSlotType;
