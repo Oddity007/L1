@@ -1,15 +1,15 @@
 #the makefile
 
 all:
+	mkdir -p generated
+	lua Source/ParserGenerator.lua > generated/L1ParserGeneratedPortion
+	cd Source && lua IRManagementGenerator.lua ../generated
 	mkdir -p build
-	cd build && cc -Wall -Wextra -pedantic ../*.c -O0 -g -flto -fvisibility=hidden -std=c99 -Wno-unused-parameter -Wno-unused-function -o l1c
-
-parser:
-	lua ParserGenerator.lua > L1ParserGeneratedPortion
+	cd build && cc -Wall -Wextra -pedantic -I ../Generated -I ../Source ../Source/*.c -Os -flto -fvisibility=hidden -std=c11 -Wno-unused-parameter -Wno-unused-function -o l1c
 
 test:
 	./build/l1c -i sample.l1
 
 clean:
-	rm -rf L1ParserGeneratedPortion
+	rm -rf generated
 	rm -rf build

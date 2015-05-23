@@ -6,7 +6,7 @@
 #include <string.h>
 #include <assert.h>
 #include "L1Parser.h"
-#include "L1IR.h"
+#include "L1IRState.h"
 #include "L1GenerateIR.h"
 
 static void PrintHex(FILE* outputFile, const char* bytes, size_t byteCount)
