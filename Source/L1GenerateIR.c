@@ -170,7 +170,7 @@ static L1IRLocalAddress GenerateExpression(GenerationState* generationState, siz
 						abort();
 				}
 				L1IRLocalAddress resultLocalAddress = GenerateExpression(generationState, node->data.lambda.result);
-				L1IRGlobalAddress globalAddress = L1IRGlobalStateCreateBlock(generationState->globalState, L1IRGlobalStateBlockTypeLambda, L1ArrayGetElements(& localState.slots), resultLocalAddress + 1, argumentLocalAddress);
+				L1IRGlobalAddress globalAddress = L1IRGlobalStateCreateNativeBlock(generationState->globalState, L1IRGlobalStateBlockTypeLambda, L1ArrayGetElements(& localState.slots), resultLocalAddress + 1, argumentLocalAddress);
 				generationState->localState = oldLocalState;
 				L1IRLocalStateDeinitialize(& localState);
 				L1IRLocalAddress captureLocalAddress = PopCapturedState(generationState);
@@ -201,7 +201,7 @@ static L1IRLocalAddress GenerateExpression(GenerationState* generationState, siz
 						abort();
 				}
 				L1IRLocalAddress resultLocalAddress = GenerateExpression(generationState, node->data.pi.result);
-				L1IRGlobalAddress globalAddress = L1IRGlobalStateCreateBlock(generationState->globalState, L1IRGlobalStateBlockTypePi, L1ArrayGetElements(& localState.slots), resultLocalAddress + 1, argumentLocalAddress);
+				L1IRGlobalAddress globalAddress = L1IRGlobalStateCreateNativeBlock(generationState->globalState, L1IRGlobalStateBlockTypePi, L1ArrayGetElements(& localState.slots), resultLocalAddress + 1, argumentLocalAddress);
 				generationState->localState = oldLocalState;
 				L1IRLocalStateDeinitialize(& localState);
 				L1IRLocalAddress captureLocalAddress = PopCapturedState(generationState);
@@ -258,7 +258,7 @@ L1IRGlobalAddress L1GenerateIR(L1IRGlobalState* globalState, const L1ParserASTNo
 	L1IRLocalAddress unitTypeLocalAddress = L1IRLocalStateCreateSlot(& localState, L1IRMakeSlot(L1IRSlotTypeUnitType, 0, 0, 0));
 	L1IRLocalAddress argumentLocalAddress = L1IRLocalStateCreateSlot(& localState, L1IRMakeSlot(L1IRSlotTypeArgument, 0, unitTypeLocalAddress, 0));
 	L1IRLocalAddress resultLocalAddress = GenerateExpression(& generationState, rootNodeIndex);
-	L1IRGlobalAddress globalAddress = L1IRGlobalStateCreateBlock(globalState, L1IRGlobalStateBlockTypeLambda, L1ArrayGetElements(& localState.slots), resultLocalAddress + 1, argumentLocalAddress);
+	L1IRGlobalAddress globalAddress = L1IRGlobalStateCreateNativeBlock(globalState, L1IRGlobalStateBlockTypeLambda, L1ArrayGetElements(& localState.slots), resultLocalAddress + 1, argumentLocalAddress);
 
 	L1ArrayDeinitialize(& generationState.bindingPairs);
 	L1ArrayDeinitialize(& generationState.bindingStates);

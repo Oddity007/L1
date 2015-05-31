@@ -14,6 +14,7 @@ end
 SlotTypeDefinitions = {
 	--
 	RootSlot("Error", Argument("type", "errortype")),
+	RootSlot("UnresolvedSymbol", Argument("data", "localref")),
 	
 	Slot("Unit"),
 	Slot("UnitType"),

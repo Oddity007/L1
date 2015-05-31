@@ -4,6 +4,26 @@
 #include "L1IRSlotDescriptions"
 #include "L1IRSlotAccessors"
 
+static L1IRSlotType SlotTypeForBlock(L1IRGlobalStateBlockType type)
+{
+	switch (type)
+	{
+		case L1IRGlobalStateBlockTypeForeignFunction:
+			return L1IRSlotTypeLambda;
+		case L1IRGlobalStateBlockTypeLambda:
+			return L1IRSlotTypeLambda;
+		case L1IRGlobalStateBlockTypePi:
+			return L1IRSlotTypePi;
+		case L1IRGlobalStateBlockTypeSigma:
+			return L1IRSlotTypeSigma;
+		case L1IRGlobalStateBlockTypeADT:
+			return L1IRSlotTypeADT;
+		default:
+			break;
+	}
+	abort();
+}
+
 ///State Boilerplate
 
 void L1IRLocalStateInitialize(L1IRLocalState* self)
@@ -37,7 +57,10 @@ void L1IRGlobalStateDeinitialize(L1IRGlobalState* self)
 	size_t blockCount = L1ArrayGetElementCount(& self->blocks);
 
 	for (size_t i = 0; i < blockCount; i++)
-		free(blocks[i].slots);
+	{
+		if (L1IRGlobalStateBlockIsNative(blocks + i))
+			free(blocks[i].native.slots);
+	}
 	L1ArrayDeinitialize(& self->blocks);
 }
 
@@ -144,8 +167,10 @@ static bool SlotDependsOnSlot(L1IRGlobalState* self, L1IRLocalState* localState,
 
 //Block Creation
 
-L1IRGlobalAddress L1IRGlobalStateCreateBlock(L1IRGlobalState* self, L1IRGlobalStateBlockType type, const L1IRSlot* slots, uint16_t slotCount, L1IRLocalAddress argumentLocalAddress)
+L1IRGlobalAddress L1IRGlobalStateCreateNativeBlock(L1IRGlobalState* self, L1IRGlobalStateBlockType type, const L1IRSlot* slots, uint16_t slotCount, L1IRLocalAddress argumentLocalAddress)
 {
+	assert(type not_eq L1IRGlobalStateBlockTypeForeignFunction);
+	
 	const L1IRSlot* normalizedSlots = slots;
 	uint16_t normalizedSlotCount = slotCount;
 	const L1IRGlobalStateBlock* blocks = L1ArrayGetElements(& self->blocks);
@@ -156,18 +181,38 @@ L1IRGlobalAddress L1IRGlobalStateCreateBlock(L1IRGlobalState* self, L1IRGlobalSt
 	L1IRGlobalAddress address = 0;
 	for (size_t i = 0; i < blockCount; i++)
 	{
-		if (blocks[i].slotCount not_eq normalizedSlotCount) continue;
+		if (type == L1IRGlobalStateBlockTypeADT) break;
 		if (blocks[i].type not_eq type) continue;
-		if (memcmp(blocks->slots, normalizedSlots, sizeof(L1IRSlot) * normalizedSlotCount) not_eq 0) continue;
+		if (blocks[i].native.slotCount not_eq normalizedSlotCount) continue;
+		if (memcmp(blocks->native.slots, normalizedSlots, sizeof(L1IRSlot) * normalizedSlotCount) not_eq 0) continue;
 		address = i;
 		return address;
 	}
 
 	L1IRGlobalStateBlock block;
 	block.type = type;
-	block.slotCount = normalizedSlotCount;
-	block.slots = memcpy(malloc(sizeof(L1IRSlot) * normalizedSlotCount), normalizedSlots, sizeof(L1IRSlot) * normalizedSlotCount);
-	block.argumentLocalAddress = argumentLocalAddress;
+	block.native.slotCount = normalizedSlotCount;
+	block.native.slots = memcpy(malloc(sizeof(L1IRSlot) * normalizedSlotCount), normalizedSlots, sizeof(L1IRSlot) * normalizedSlotCount);
+
+	L1ArrayAppend(& self->blocks, & block, sizeof(L1IRGlobalStateBlock));
+	address = blockCount;
+
+	return address;
+}
+
+L1IRGlobalAddress L1IRGlobalStateCreateForeignBlock(L1IRGlobalState* self, L1IRGlobalStateBlockType type, L1IRGlobalStateBlockCallback callback, void* userdata)
+{
+	assert(type == L1IRGlobalStateBlockTypeForeignFunction);
+	
+	const L1IRGlobalStateBlock* blocks = L1ArrayGetElements(& self->blocks);
+	size_t blockCount = L1ArrayGetElementCount(& self->blocks);
+
+	L1IRGlobalAddress address = 0;
+
+	L1IRGlobalStateBlock block;
+	block.type = type;
+	block.foreign.callback = callback;
+	block.foreign.userdata = userdata;
 
 	L1ArrayAppend(& self->blocks, & block, sizeof(L1IRGlobalStateBlock));
 	address = blockCount;
@@ -185,7 +230,7 @@ static L1IRLocalAddress WalkCaptureChain(const L1IRSlot* slots, L1IRLocalAddress
 	return CallCapture_captured(captureSlot);
 }
 
-L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* localState, L1IRGlobalStateEvaluationFlags flags, L1IRLocalAddress calleeAddress, L1IRLocalAddress argumentLocalAddress, L1IRLocalAddress captureLocalAddress, L1IRLocalAddress* finalArgumentLocalAddressOut)
+L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* localState, L1IRGlobalStateEvaluationFlags flags, L1IRGlobalAddress calleeAddress, L1IRLocalAddress argumentLocalAddress, L1IRLocalAddress captureLocalAddress, L1IRLocalAddress* finalArgumentLocalAddressOut)
 {
 	L1IRLocalAddress resultLocalAddress = 0;
 	L1IRLocalAddress finalArgumentLocalAddress = 0;
@@ -195,15 +240,23 @@ L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* 
 	
 	localState->callDepth++;
 	
-	assert (block->slotCount > 0);
-	assert (block->slots);
-	uint16_t* mergingSlotRemappings = malloc(sizeof(uint16_t) * block->slotCount);
-	
 	L1IRGlobalStatePushGCBarrier(self, localState);
 	
-	for (uint16_t i = 0; i < block->slotCount; i++)
+	if (not L1IRGlobalStateBlockIsNative(block))
 	{
-		const L1IRSlot prototypeSlot = block->slots[i];
+		assert(flags & L1IRGlobalStateEvaluationFlagHasArgument);
+		assert(not (flags & L1IRGlobalStateEvaluationFlagHasCaptured));
+		finalArgumentLocalAddress = block->foreign.callback(self, localState, calleeAddress, argumentLocalAddress, finalArgumentLocalAddressOut, block->foreign.userdata);
+		goto resultComputed;
+	}
+	
+	assert (block->native.slotCount > 0);
+	assert (block->native.slots);
+	uint16_t* mergingSlotRemappings = malloc(sizeof(uint16_t) * block->native.slotCount);
+	
+	for (uint16_t i = 0; i < block->native.slotCount; i++)
+	{
+		const L1IRSlot prototypeSlot = block->native.slots[i];
 		L1IRSlotType type = L1IRExtractSlotType(prototypeSlot);
 		uint16_t operands[3] = {0, 0, 0};
 		for (uint8_t j = 0; j < 3; j++) operands[j] = L1IRExtractSlotOperand(prototypeSlot, j);
@@ -220,6 +273,12 @@ L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* 
 		}*/
 		switch (type)
 		{
+			case L1IRSlotTypeUnresolvedSymbol:
+			case L1IRSlotTypeError:
+				{
+					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeError, L1IRErrorTypeInvalidInstruction, 0, 0));
+					goto finish;
+				}
 			case L1IRSlotTypeArgument:
 				assert(operands[0] == 0);
 				if (not (flags & L1IRGlobalStateEvaluationFlagHasArgument))
@@ -253,20 +312,22 @@ L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* 
 					else
 						captureLocalAddress = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeCaptured, 0, 0, 0));
 
-					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(block->type, captureLocalAddress, calleeAddress, 0));
+					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(SlotTypeForBlock(block->type), captureLocalAddress, calleeAddress, 0));
 					break;
 				}
 			default:
-				mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(type, operands[0], operands[1], operands[2]));
+				mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(SlotTypeForBlock(block->type), operands[0], operands[1], operands[2]));
 				break;
 		}
 	}
 	
 	finish:
 
-	resultLocalAddress = mergingSlotRemappings[block->slotCount - 1];
+	resultLocalAddress = mergingSlotRemappings[block->native.slotCount - 1];
 
 	free(mergingSlotRemappings);
+	
+	resultComputed:
 	
 	localState->callDepth--;
 

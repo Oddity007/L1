@@ -8,7 +8,6 @@
 
 enum L1IRSlotType
 {
-	//Warning: Introduces general recursion
 	L1IRSlotTypeSelf,
 
 	L1IRSlotTypeUniverse,
@@ -43,6 +42,7 @@ enum L1IRSlotType
 	L1IRSlotTypeRawData32Extended,
 	L1IRSlotTypeRawData48,
 
+	L1IRSlotTypeUnresolvedSymbol,
 	L1IRSlotTypeError,
 
 	L1IRSlotTypeLast = L1IRSlotTypeError,
@@ -63,33 +63,33 @@ typedef uint_least64_t L1IRSlot;
 static L1IRSlot L1IRMakeSlot(L1IRSlotType type, uint16_t operand1, uint16_t operand2, uint16_t operand3)
 {
 	L1IRSlot slot = 0;
-	slot |= ((L1IRSlot) type) & 0xFF;
-	slot |= ((L1IRSlot) operand1 << 16 * 1);
-	slot |= ((L1IRSlot) operand2 << 16 * 2);
-	slot |= ((L1IRSlot) operand3 << 16 * 3);
+	slot |= ((L1IRSlot) type) & 0xFFu;
+	slot |= ((L1IRSlot) operand1 << 16u * 1u);
+	slot |= ((L1IRSlot) operand2 << 16u * 2u);
+	slot |= ((L1IRSlot) operand3 << 16u * 3u);
 	return slot;
 }
 
 static L1IRSlotType L1IRExtractSlotType(L1IRSlot slot)
 {
-	return (L1IRSlotType) (slot & 0xFF);
+	return (L1IRSlotType) (slot & 0xFFu);
 }
 
 static uint16_t L1IRExtractSlotOperand(L1IRSlot slot, size_t i)
 {
-	assert(i < 3);
-	return (uint16_t) ((slot >> 16 * (i + 1)) & 0xFFFF);
+	assert(i < 3u);
+	return (uint16_t) ((slot >> 16u * (i + 1)) & 0xFFFFu);
 }
 
 static uint8_t L1IRExtractSlotAnnotation(L1IRSlot slot)
 {
-	return (slot >> 8) & 0xFF;
+	return (slot >> 8u) & 0xFFu;
 }
 
 static void L1IRSetSlotAnnotation(L1IRSlot* slot, uint8_t annotation)
 {
-	*slot &= 0xFFFFFFFFFFFF00FF;
-	*slot |= annotation << 8;
+	*slot &= 0xFFFFFFFFFFFF00FFul;
+	*slot |= (annotation << 8u);
 }
 
 static L1IRSlot L1IRAttachSlotAnnotation(L1IRSlot slot, uint8_t annotation)
