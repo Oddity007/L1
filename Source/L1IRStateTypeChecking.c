@@ -37,7 +37,7 @@ static bool AreEqual(L1IRGlobalState* self, L1IRLocalState* localState, uint16_t
 				if (SlotTypeArgumentIsLocalAddress(type, i))
 				{
 					if (not AreEqual(self, localState, L1IRExtractSlotOperand(value1Slot, i), L1IRExtractSlotOperand(value2Slot, i))) return false;
-				} 
+				}
 				else if (L1IRExtractSlotOperand(value1Slot, i) not_eq L1IRExtractSlotOperand(value2Slot, i)) return false;
 			}
 			return true;
@@ -127,6 +127,7 @@ bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* localState, 
 			//To do: Finish this
 			return true;
 		case L1IRSlotTypeADT:
+		case L1IRSlotTypeExtendADT:
 			if (L1IRExtractSlotType(typeSlot) not_eq L1IRSlotTypeUniverse) return false;
 			//To do: Finish this case
 			return true;

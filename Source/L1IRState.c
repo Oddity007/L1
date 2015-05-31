@@ -181,13 +181,15 @@ static L1IRLocalAddress WalkCaptureChain(const L1IRSlot* slots, L1IRLocalAddress
 	for(uint16_t i = 0; i < depth; i++)
 	{
 		captureSlot = slots[CallCapture_captures(captureSlot)];
-		i++;
 	}
 	return CallCapture_captured(captureSlot);
 }
 
-L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* localState, L1IRGlobalStateEvaluationFlags flags, L1IRLocalAddress calleeAddress, L1IRLocalAddress argumentLocalAddress, L1IRLocalAddress captureLocalAddress, L1IRLocalAddress* finalArgumentLocalAddress)
+L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* localState, L1IRGlobalStateEvaluationFlags flags, L1IRLocalAddress calleeAddress, L1IRLocalAddress argumentLocalAddress, L1IRLocalAddress captureLocalAddress, L1IRLocalAddress* finalArgumentLocalAddressOut)
 {
+	L1IRLocalAddress resultLocalAddress = 0;
+	L1IRLocalAddress finalArgumentLocalAddress = 0;
+
 	assert (L1ArrayGetElementCount(& self->blocks) > calleeAddress);
 	const L1IRGlobalStateBlock* block = calleeAddress + (const L1IRGlobalStateBlock*) L1ArrayGetElements(& self->blocks);
 	
@@ -206,19 +208,34 @@ L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* 
 		uint16_t operands[3] = {0, 0, 0};
 		for (uint8_t j = 0; j < 3; j++) operands[j] = L1IRExtractSlotOperand(prototypeSlot, j);
 		for (uint8_t j = 0; j < 3; j++) operands[j] = SlotTypeArgumentIsLocalAddress(type, j) ? mergingSlotRemappings[operands[j]]: operands[j];
+		/*for (uint8_t j = 0; j < 3; j++)
+		{
+			if (not SlotTypeArgumentIsLocalAddress(type, j))
+				break;
+			const L1IRSlot* slots = L1ArrayGetElements(& localState->slots);
+			L1IRSlot errorSlot = slots[operands[j]];
+			if (L1IRExtractSlotType(errorSlot) not_eq L1IRSlotTypeError)
+				break;
+			goto done;
+		}*/
 		switch (type)
 		{
 			case L1IRSlotTypeArgument:
-				{
-					assert(operands[0] == 0);
-					if (not (flags & L1IRGlobalStateEvaluationFlagHasArgument))
-						mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeArgument, localState->callDepth - 1, operands[1], 0));
-					else
-						mergingSlotRemappings[i] = argumentLocalAddress;
-				}
-				if (finalArgumentLocalAddress) *finalArgumentLocalAddress = mergingSlotRemappings[i];
+				assert(operands[0] == 0);
+				if (not (flags & L1IRGlobalStateEvaluationFlagHasArgument))
+					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeArgument, localState->callDepth - 1, operands[1], 0));
+				else
+					mergingSlotRemappings[i] = argumentLocalAddress;
+				
+				if (finalArgumentLocalAddressOut)
+					finalArgumentLocalAddress = mergingSlotRemappings[i];
+				
 				if (not L1IRGlobalStateIsOfType(self, localState, mergingSlotRemappings[i], operands[1]))
-					abort();
+				{
+					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeError, L1IRErrorTypeTypeChecking, 0, 0));
+					goto finish;
+					//abort();
+				}
 				break;
 			case L1IRSlotTypeCaptured:
 				if (flags & L1IRGlobalStateEvaluationFlagHasCaptured)
@@ -244,14 +261,20 @@ L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* 
 				break;
 		}
 	}
+	
+	finish:
 
-	L1IRLocalAddress resultLocalAddress = mergingSlotRemappings[block->slotCount - 1];
+	resultLocalAddress = mergingSlotRemappings[block->slotCount - 1];
 
 	free(mergingSlotRemappings);
 	
 	localState->callDepth--;
 
-	L1IRGlobalStatePopGCBarrier(self, localState, & resultLocalAddress, 1);
+	L1IRLocalAddress retainedLocalAddresses[2] = {resultLocalAddress, finalArgumentLocalAddress};
+	L1IRGlobalStatePopGCBarrier(self, localState, retainedLocalAddresses, finalArgumentLocalAddressOut ? 2 : 1);
+	
+	if (finalArgumentLocalAddressOut)
+		*finalArgumentLocalAddressOut = finalArgumentLocalAddress;
 
 	return resultLocalAddress;
 }

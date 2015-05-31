@@ -31,6 +31,7 @@ enum L1IRSlotType
 	L1IRSlotTypeCaptured,
 	
 	L1IRSlotTypeADT,
+	L1IRSlotTypeExtendADT,
 	L1IRSlotTypeConstructor,
 	L1IRSlotTypeConstructorOf,
 	L1IRSlotTypeConstructedOf,
@@ -39,8 +40,20 @@ enum L1IRSlotType
 	L1IRSlotTypeBeginDeconstruction,
 	L1IRSlotTypeEndDeconstruction,
 
-	L1IRSlotTypeLast = L1IRSlotTypeEndDeconstruction,
+	L1IRSlotTypeRawData32Extended,
+	L1IRSlotTypeRawData48,
+
+	L1IRSlotTypeError,
+
+	L1IRSlotTypeLast = L1IRSlotTypeError,
 	
+};
+
+enum L1IRErrorType
+{
+	L1IRErrorType,
+	L1IRErrorTypeTypeChecking,
+	L1IRErrorTypeInvalidInstruction,
 };
 
 typedef enum L1IRSlotType L1IRSlotType;

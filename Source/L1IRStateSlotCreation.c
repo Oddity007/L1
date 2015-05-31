@@ -13,11 +13,24 @@ static uint16_t WalkDeconstructionChain(const L1IRSlot* slots, uint16_t localAdd
 	return localAddress;
 }
 
+static uint16_t L1IRGlobalStateCreateSlotRaw(L1IRGlobalState* self, L1IRLocalState* localState, L1IRSlot slot)
+{
+	const L1IRSlot* slots = L1ArrayGetElements(& localState->slots);
+	size_t slotCount = L1ArrayGetElementCount(& localState->slots);
+
+	for (uint16_t i = 0; i < L1ArrayGetElementCount(& localState->slots); i++)
+		if (slots[i] == slot) return i;
+	L1ArrayPush(& localState->slots, & slot, sizeof(L1IRSlot));
+	return L1ArrayGetElementCount(& localState->slots) - 1;
+}
 
 uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState* localState, L1IRSlot slot)
 {
 	const L1IRSlot* slots = L1ArrayGetElements(& localState->slots);
 	size_t slotCount = L1ArrayGetElementCount(& localState->slots);
+	
+	if (slotCount > 0 and L1IRExtractSlotType(slots[slotCount - 1]) == L1IRSlotTypeError)
+		return slotCount - 1;
 	
 	switch (L1IRExtractSlotType(slot))
 	{
@@ -25,11 +38,11 @@ uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState* localS
 			{
 				uint16_t adtLocalAddress = ConstructorOf_adt(slot);
 				L1IRSlot adtSlot = slots[adtLocalAddress];
-				while (L1IRExtractSlotType(adtSlot) == L1IRSlotTypeConstructor)
+				while (L1IRExtractSlotType(adtSlot) == L1IRSlotTypeExtendADT)
 				{
-					if (Constructor_tag(adtSlot) == ConstructorOf_tag(slot))
-						return adtLocalAddress;
-					adtLocalAddress = Constructor_adt(adtSlot);
+					if (ExtendADT_tag(adtSlot) == ConstructorOf_tag(slot))
+						return L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeConstructor, ConstructorOf_adt(slot), ExtendADT_tag(adtSlot), ExtendADT_argumentType(adtSlot)));
+					adtLocalAddress = ExtendADT_adt(adtSlot);
 					adtSlot = slots[adtLocalAddress];
 				}
 			}
@@ -103,8 +116,10 @@ uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState* localS
 							return result;
 						}
 					case L1IRSlotTypeConstructor:
-						assert(L1IRGlobalStateIsOfType(self, localState, Call_argument(slot), Constructor_argumentType(calleeSlot)));
-						return L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeConstructedOf, Constructor_adt(calleeSlot), Constructor_tag(calleeSlot), Call_argument(slot)));
+						if (L1IRGlobalStateIsOfType(self, localState, Call_argument(slot), Constructor_argumentType(calleeSlot)))
+							return L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeConstructedOf, Constructor_adt(calleeSlot), Constructor_tag(calleeSlot), Call_argument(slot)));
+						else
+							return L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeError, L1IRErrorTypeTypeChecking, 0, 0));
 					case L1IRSlotTypeConstructorOf:
 					case L1IRSlotTypeArgument:
 					case L1IRSlotTypeCaptured:
@@ -122,8 +137,5 @@ uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState* localS
 			break;
 	}
 
-	for (uint16_t i = 0; i < L1ArrayGetElementCount(& localState->slots); i++)
-		if (slots[i] == slot) return i;
-	L1ArrayPush(& localState->slots, & slot, sizeof(L1IRSlot));
-	return L1ArrayGetElementCount(& localState->slots) - 1;
+	return L1IRGlobalStateCreateSlotRaw(self, localState, slot);
 }

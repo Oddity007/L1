@@ -12,6 +12,9 @@ end
 
 --Must also update L1IR.h
 SlotTypeDefinitions = {
+	--
+	RootSlot("Error", Argument("type", "errortype")),
+	
 	Slot("Unit"),
 	Slot("UnitType"),
 	Slot("Universe", Argument("index", "uint16")),
@@ -27,14 +30,18 @@ SlotTypeDefinitions = {
 	Slot("CallCapture", Argument("captured", "localref"), Argument("captures", "localref")),
 	
 	Slot("Self"),
-	RootSlot("Argument", Argument("index", "uint16"), Argument("type", "localref")),
+	Slot("Argument", Argument("index", "uint16"), Argument("type", "localref")),
 	Slot("Captured", Argument("index", "uint16")),
 
+	Slot("RawData32Extended", Argument("extension", "localref"), Argument("high", "uint16"), Argument("low", "uint16")),
+	Slot("RawData48", Argument("high", "uint16"), Argument("mid", "uint16"), Argument("low", "uint16")),
+
 	Slot("ADT", Argument("captured", "localref"), Argument("prototype", "globalref")),
+	Slot("ExtendADT", Argument("adt", "localref"), Argument("tag", "uint16"), Argument("argumentType", "localref")),
 	Slot("Constructor", Argument("adt", "localref"), Argument("tag", "uint16"), Argument("argumentType", "localref")),
 	Slot("ConstructorOf", Argument("adt", "localref"), Argument("tag", "uint16")),
 	Slot("ConstructedOf", Argument("adt", "localref"), Argument("tag", "uint16"), Argument("argument", "localref")),
-	Slot("Deconstruction", Argument("default", "localref"), Argument("tag", "localref"), Argument("callee", "localref")),
+	Slot("Deconstruction", Argument("default", "localref"), Argument("tag", "uint16"), Argument("callee", "localref")),
 	Slot("DeconstructionSuccess", Argument("result", "localref")),
 	Slot("BeginDeconstruction", Argument("constructed", "localref"), Argument("type", "localref")),
 	Slot("EndDeconstruction", Argument("deconstruction", "localref")),
