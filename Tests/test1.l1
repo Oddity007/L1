@@ -1,0 +1,30 @@
+#let Type = #universe 0;
+
+/*#let option = 
+	#fn (T : Type) ->
+	#adt
+	.none | 
+	.some (x : T);
+
+#let none = #fn (T : Type) -> (option T).none;
+#let some = #fn (T : Type) -> (option T).some;*/
+
+#let nat = 
+	#adt
+	.zero | 
+	.succ (x : self);
+//#let zero = (nat).zero;
+//#let succ = (nat).succ;
+
+#let succ = nat.succ;
+
+(nat.zero) ?
+	.zero -> (nat.zero) |
+	.succ (x : nat) -> (succ x)
+
+
+/*#let id = 
+	#fn (A : Type) (a : A) -> a;
+id*/
+//nat
+//zero

@@ -1,61 +1,31 @@
-//* = __universe 0;
-//id = (a : *) -> a;
-//idt = (a : *) => *;
-//id : idt
+/*#let nat = 
+	#adt
+	.zero | 
+	.succ (x : #self);
+#let zero = (nat).zero;
+//zero ? $ zero -> nat
 
-/*(
-	(x : #universe 0)
-	->
-	x
-)*/
+#let Type = #universe 0;
+#let option = 
+	#fn (T : Type) ->
+	#adt
+	.none | 
+	.some (x : T);
+#let nat = 
+	#adt
+	.zero | 
+	.succ (x : #self);
+#let zero = (nat).zero;
+#let succ = (nat).succ;
+#let id = 
+	#fn (a : Type) -> a;
+//id (#adt)
+//zero 
+//? $ zero -> nat
+//| $ succ x -> x
+#let c = succ zero;
+c
+? $ succ x -> x
+| $ zero -> (#fn (x : option) -> succ x)*/
 
-/*
-#enum nats
-{
-	zero :: nats,
-	succ :: (x : nats) => nats
-}
-*/
-
-/*
-nats ::
-{
-	zero :: nats;
-	succ :: (_ : nats) => nats;
-}
-*/
-
-/*
-#adt nats
-(
-	zero :: 
-)
-*/
-
-/*branch
-	= 0 -> a -> b -> a
-	& 1 -> a -> b -> b;*/
-* = #universe 0;
-const = (T : *) -> (a : T) -> (b : T) -> a;
-id = (a : *) -> a;
-id //: (a : *) => *
-
-//* = #universe 0;
-/*Nat = {zero, succ (x : #self)};
-List = (T : *) -> {nil, cons (x : T) (xs: #self)};
-length = (T : *) ->
-(
-	length = #self;
-	($ nil -> $ zero) &
-	(($cons x xs) -> ($succ (length xs)))
-	//((($nil : List T) -> ($zero : Nat)) &
-	//(($cons x xs : List T) -> ($succ (length xs) : Nat)))
-);
-length*/
-//*
-
-/*__letrec map f = 
-	[] -> [] &
-	[x, ...xs] -> [f x, ... map f xs];
-__let nats = {zero, succ (x : __self)};
-*/
+#fn (a : #universe 0) -> a

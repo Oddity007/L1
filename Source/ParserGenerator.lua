@@ -1,105 +1,200 @@
-local Tokens = {"Natural", "String", "Identifier", "Terminal", "OpenParenthesis", "CloseParenthesis", "SingleEqual", "SingleColon", "DoubleColon", "SingleBarArrow", "DoubleBarArrow", "Dollar", "Percent", "Ampersand", "Declare", "Comma", "OpenBracket", "CloseBracket", "Let", "Self", "Universe", "Done",}
+local Tokens = {"Natural", "String", "Identifier", "Terminal", "OpenParenthesis", "CloseParenthesis", "SingleEqual", "SingleColon", "SingleLineArrow", "Bar", "Ampersand", "Declare", "Comma", "Self", "Universe", "Let", "Fn", "Pi", "Sigma", "ADT", "Match", "Period", "Dollar", "Done",}
 
+local Actions = {}
 local Actions = {
-	setRoot = "self->rootASTNode = PopNodeLocation(self);",
+	beginProgram = "",
+	endProgram = "self->root = PopLocalAddress(self);",
 	
-	pushIdentifier = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeIdentifier; node.data.identifier.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
-	pushNatural = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeNatural; node.data.natural.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
-	pushString = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeString; node.data.string.tokenIndex = self->currentTokenIndex; PushNode(self, & node);",
-	pushUniverse = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeNatural; node.data.natural.tokenIndex = self->currentTokenIndex; PushNode(self, & node); node.type = L1ParserASTNodeTypeUniverse; node.data.universe.level = PopNodeLocation(self); PushNode(self, & node);",
-	pushSelf = "L1ParserASTNode node; node.type = L1ParserASTNodeTypeSelf; PushNode(self, & node);",
+	outputCall = "L1IRAddress argument = PopLocalAddress(self); L1IRAddress callee = PopLocalAddress(self); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeCall, callee, argument, 0));",
 	
-	pushEvaluateArgument = "size_t expression = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeEvaluateArgument); node.data.evaluateArgument.expression = expression; PushNode(self, & node);",
+	beginLetBody = "PushBinding(self, PopTokenID(self), PopLocalAddress(self), BindingTypeLet);",
+	endLetBody = "PopBinding(self);",
 	
-	pushOverload = "size_t second = PopNodeLocation(self); size_t first = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeOverload); node.data.overload.first = first; node.data.overload.second = second; PushNode(self, & node);",
+	beginBlockCapture = "self->stateDepth++;",
+	bindArgument = "L1IRAddress argumentType = PopLocalAddress(self); PushLocalAddress(self, argumentType); PushBinding(self, PopTokenID(self), CreateSlot(self, L1IRSlotTypeArgument, self->stateDepth, argumentType, 0), BindingTypeArgument);",
+	endFnExp = "PopBinding(self); L1IRAddress result = PopLocalAddress(self); L1IRAddress argumentType = PopLocalAddress(self); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeLambda, argumentType, result, 0));",
+	endPiExp = "PopBinding(self); L1IRAddress result = PopLocalAddress(self); L1IRAddress argumentType = PopLocalAddress(self); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeForall, argumentType, result, 0));",
+	--endSigmaExp = "PopBinding(self); L1IRAddress result = PopLocalAddress(self); L1IRAddress argumentType = PopLocalAddress(self); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeExists, argumentType, result, 0));",
 	
-	pushCall = "size_t argument = PopNodeLocation(self); size_t callee = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeCall); node.data.call.callee = callee; node.data.call.argument = argument; PushNode(self, & node);",
-	
-	pushLambda = "size_t result = PopNodeLocation(self); size_t argument = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeLambda); node.data.lambda.argument = argument; node.data.lambda.result = result; PushNode(self, & node);",
-	pushPi = "size_t result = PopNodeLocation(self); size_t argument = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypePi); node.data.pi.argument = argument; node.data.pi.result = result; PushNode(self, & node);",
-	
-	pushAnnotate = "size_t type = PopNodeLocation(self); size_t value = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeAnnotate); node.data.annotate.value = value; node.data.annotate.type = type; PushNode(self, & node);",
-	
-	pushAssign = "size_t followingContext = PopNodeLocation(self); size_t source = PopNodeLocation(self); size_t destination = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeAssign); node.data.assign.destination = destination; node.data.assign.source = source; node.data.assign.followingContext = followingContext; PushNode(self, & node);",
+	outputString = "PushLocalAddress(self, CreateString(self, tokenString, tokenStringLength));",
+	--outputSelf = "PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeSelf, 0, 0, 0));",
+	outputUniverse = "PushLocalAddress(self, CreateUniverse(self, tokenString, tokenStringLength));",
+	lookupIdentifier = "PushLocalAddress(self, LookupBinding(self, GetTokenID(self, tokenString, tokenStringLength)));",
+	pushIdentifier = "PushTokenID(self, GetTokenID(self, tokenString, tokenStringLength));",
 
-	pushNull = "PushNode(self, NULL);",
+	--[[beginADT = "PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeADT, self->nextADTTag, 0, 0)); self->nextADTTag++;",
+	extendADT = "
+		L1IRLocalAddress argumentType = PopLocalAddress(self);
+		L1IRLocalAddress adt = PopLocalAddress(self);
+		PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeExtendADT, adt, argumentType, 0));
+	",
+	outputUnitType = "PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeUnitType, 0, 0, 0));",]]
+	
+	beginADT = "self->stateDepth++; L1IRAddress argument = CreateSlot(self, L1IRSlotTypeArgument, self->stateDepth, CreateSlot(self, L1IRSlotTypeUniverse, 0, 0, 0), 0); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeADT, self->nextADTTag, 0, 0)); PushBinding(self, GetTokenID(self, \"self\", 4), argument, BindingTypeLet); self->nextADTTag++;",
+	endADT = "PopBinding(self); L1IRAddress result = PopLocalAddress(self); /*PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeRecursive, CreateSlot(self, L1IRSlotTypeUniverse, 0, 0, 0), result, 0));*/ PushLocalAddress(self, result); self->stateDepth--;",
+	extendADT = [[
+		//PopBinding(self);
+		//PopBinding(self);
+		//PopBinding(self);
+		//PopBinding(self);
+		L1IRAddress constructed = PopLocalAddress(self);
+		L1IRAddress name = PopLocalAddress(self);
+		L1IRAddress adt = PopLocalAddress(self);
+		PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeExtendADT, adt, name, constructed));
+	]],
+	-----------
+	bindConsDefArgument = [[
+		self->stateDepth++;
+		L1IRAddress argumentType = PopLocalAddress(self);
+		L1IRAddress captures = PopLocalAddress(self);
+		L1IRAddress name = PopLocalAddress(self);
+		L1IRAddress adt = PopLocalAddress(self);
+		PushLocalAddress(self, argumentType);
+		L1IRAddress argument = CreateSlot(self, L1IRSlotTypeArgument, self->stateDepth, argumentType, 0);
+		PushBinding(self, PopTokenID(self), argument, BindingTypeArgument);
+		
+		captures = CreateSlot(self, L1IRSlotTypePair, captures, argument, 0);
 
-	pushADT = "size_t constructorList = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeADT); node.data.adt.constructorList = constructorList; PushNode(self, & node);",
-
-	pushArgumentList = "size_t previousArgumentList = PopNodeLocation(self); size_t argument = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeArgumentList); node.data.argumentList.argument = argument; node.data.argumentList.previousArgumentList = previousArgumentList; PushNode(self, & node);",
-	pushConstructorList = "size_t previousConstructorList = PopNodeLocation(self); size_t argumentList = PopNodeLocation(self); size_t constructorName = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeConstructorList); node.data.constructorList.argumentList = argumentList; node.data.constructorList.constructorName = constructorName; node.data.constructorList.previousConstructorList = previousConstructorList; PushNode(self, & node);",
-
-	pushLet = "size_t followingContext = PopNodeLocation(self); size_t source = PopNodeLocation(self); size_t argumentList = PopNodeLocation(self); size_t destination = PopNodeLocation(self); L1ParserASTNode node; node.type = (L1ParserASTNodeTypeLet); node.data.let.destination = destination; node.data.let.argumentList = argumentList; node.data.let.source = source; node.data.let.followingContext = followingContext; PushNode(self, & node);",
+		PushLocalAddress(self, adt);
+		PushLocalAddress(self, name);
+		PushLocalAddress(self, captures);
+	]],
+	endConsDef = [[PopBinding(self); L1IRAddress result = PopLocalAddress(self); L1IRAddress argumentType = PopLocalAddress(self); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeLambda, argumentType, result, 0)); self->stateDepth--;]],
+	endInnerConsDef = [[
+		L1IRAddress captures = PopLocalAddress(self);
+		L1IRAddress name = PopLocalAddress(self);
+		L1IRAddress adt = PopLocalAddress(self);
+		//PushLocalAddress(self, adt);
+		//PushLocalAddress(self, name);
+		adt = LookupBinding(self, GetTokenID(self, "self", 4));
+		PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeConstructed, adt, name, captures));
+	]],
+	
+	beginConsDefArgList = [[
+		L1IRAddress name = PopLocalAddress(self);
+		L1IRAddress adt = PopLocalAddress(self);
+		PushLocalAddress(self, adt);
+		PushLocalAddress(self, name);
+		PushLocalAddress(self, adt);
+		PushLocalAddress(self, name);
+		PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeUnit, 0, 0, 0));
+		//PushBinding(self, GetTokenID(self, "#consdefadt", strlen("#consdefadt")), adt, BindingTypeLet);
+		//PushBinding(self, GetTokenID(self, "#consdefname", strlen("#consdefname")), name, BindingTypeLet);
+		//PushBinding(self, GetTokenID(self, "#consdefcaptures", strlen("#consdefcaptures")), CreateSlot(self, L1IRSlotTypeUnit, 0, 0, 0), BindingTypeLet);
+	]],
+	
+	outputUnit = "PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeUnit, 0, 0, 0));",
+	
+	outputUnknown = "PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeUnknown, 0, 0, 0));",
+	
+	beginMatch = "L1IRAddress value = PopLocalAddress(self); L1IRAddress typeRef = CreateSlot(self, L1IRSlotTypeTypeOf, value, 0, 0); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeBeginMatch, value, typeRef, 0));",
+	endMatch = "L1IRAddress match = PopLocalAddress(self); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeEndMatch, match, CreateSlot(self, L1IRSlotTypeUnknown, 0, 0, 0), 0));",
+	endConsDes = "L1IRAddress handler = PopLocalAddress(self); L1IRAddress name = PopLocalAddress(self); L1IRAddress match = PopLocalAddress(self); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeMatchCase, match, name, handler));",
+	
+	--endConsDesInnerArgument = "PopBinding(self); L1IRAddress result = PopLocalAddress(self); L1IRAddress argumentType = PopLocalAddress(self); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeLambda, argumentType, result, 0)); self->stateDepth--;",
+	endConsDesInnerArgument = "PopBinding(self); L1IRAddress result = PopLocalAddress(self); L1IRAddress argumentType = PopLocalAddress(self); PushLocalAddress(self, result); self->stateDepth--;",
+	
+	lookupField = "L1IRAddress name = PopLocalAddress(self); L1IRAddress parent = PopLocalAddress(self); PushLocalAddress(self, CreateSlot(self, L1IRSlotTypeLookup, parent, name, 0));",
 }
 
---[[local Rules = {
-		{type = "Program", "Exp", action = Actions.setRoot},
+local Rules = {
+		--{type = "Program", "DoBeginProgram", "Exp", action = Actions.endProgram},
+		{type = "Program", "Exp", action = Actions.endProgram},
+		--{type = "Program", "Exp", action = Actions.endProgram},
 		
-		{type = "Exp", "ChainedClosedExp", "ExpFollow"},
-		{type = "ExpFollow", "SingleEqual", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushAssign},
-		{type = "ExpFollow", "DoubleColon", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushDefine},
-		{type = "ExpFollow", "SingleColon", "ChainedClosedExp", action = Actions.pushAnnotate},
-		{type = "ExpFollow", "Ampersand", "ChainedClosedExp", action = Actions.pushOverload},
-		{type = "ExpFollow", ""},
+		{type = "Exp", "ChainedClosedExp"},
+		{type = "Exp", "Let", "PushedIdentifier", "SingleEqual", "ChainedClosedExp", "DoExpLetBodyBegin", "ExpFollow", "DoExpLetBodyEnd"},
+		--{type = "Exp", "Declare", "PushedIdentifier", "ExpFollow"},
+		{type = "ExpFollow", "Terminal", "Exp"},
 		
 		{type = "ChainedClosedExp", "ClosedExp", "ChainedClosedExpFollow"},
-		{type = "ChainedClosedExpFollow", "SingleBarArrow", "ChainedClosedExp", action = Actions.pushLambda},
-		{type = "ChainedClosedExpFollow", "DoubleBarArrow", "ChainedClosedExp", action = Actions.pushPi},
 		
-		{type = "DoChainedClosedExpFollowCallAction", "", action = Actions.pushCall},
+		{type = "ChainedClosedExp", "ADT", "DoBeginADT", "ConsDefList", action = Actions.endADT},
+		
+		{type = "ChainedClosedExp", "Fn", "FirstFnExp"},
+		{type = "FirstFnExp", "ArgDef", "FnExpFollow", action = Actions.endFnExp},
+		{type = "FnExp", "ArgDef", "FnExpFollow", action = Actions.endFnExp},
+		{type = "FnExpFollow", "FnExp"},
+		{type = "FnExpFollow", "SingleLineArrow", "ChainedClosedExp"},
+		
+		{type = "ChainedClosedExp", "Pi", "FirstPiExp"},
+		{type = "FirstPiExp", "ArgDef", "PiExpFollow", action = Actions.endPiExp},
+		{type = "PiExp", "ArgDef", "PiExpFollow", action = Actions.endPiExp},
+		{type = "PiExpFollow", "PiExp"},
+		{type = "PiExpFollow", "SingleLineArrow", "ChainedClosedExp"},
+		
+		--{type = "ChainedClosedExp", "Sigma", "FirstSigmaExp"},
+		--{type = "FirstSigmaExp", "ArgDef", "SigmaExpFollow", action = Actions.endSigmaExp},
+		--{type = "SigmaExp", "ArgDef", "SigmaExpFollow", action = Actions.endSigmaExp},
+		--{type = "SigmaExpFollow", "SigmaExp"},
+		--{type = "SigmaExpFollow", "SingleLineArrow", "ChainedClosedExp"},
 		
 		{type = "ChainedClosedExpFollow", "ClosedExp", "DoChainedClosedExpFollowCallAction", "ChainedClosedExpFollow"},
+		--{type = "ChainedClosedExpFollow", "Ampersand", "ChainedClosedExp", action = Actions.outputPair},
+		--{type = "ChainedClosedExpFollow", "SingleColon", "ChainedClosedExp"},
+		{type = "ChainedClosedExpFollow", "Match", "DoChainedClosedExpFollowMatchBeginAction", "ConsDesList", "DoChainedClosedExpFollowMatchEndAction"},
 		{type = "ChainedClosedExpFollow", ""},
 		
-		{type = "ClosedExp", "Percent", "ClosedExp", action = Actions.pushHideArgument},
-		{type = "ClosedExp", "Dollar", "ClosedExp", action =  Actions.pushEvaluateArgument},
-		{type = "ClosedExp", "Identifier", action = Actions.pushIdentifier},
-		{type = "ClosedExp", "String", aciton = Actions.pushString},
-		{type = "ClosedExp", "Natural", action = Actions.pushNatural},
-		{type = "ClosedExp", "OpenParenthesis", "Exp", "CloseParenthesis"},
-}]]
+		{type = "ArgDef", "OpenParenthesis", "PushedIdentifier", "SingleColon", "DoBeginBlockCapture", "ChainedClosedExp", "CloseParenthesis", action = Actions.bindArgument},
+		{type = "ConsDefArgDef", "OpenParenthesis", "PushedIdentifier", "SingleColon", "DoBeginBlockCapture", "ChainedClosedExp", "CloseParenthesis", action = Actions.bindConsDefArgument},
+		
+		{type = "LookupIdentifier", "Identifier", action = Actions.lookupIdentifier},
+		{type = "LookupField", "Period", "IdentifierAsString", action = Actions.lookupField},
+		
+		{type = "ClosedExp", "LookupIdentifier", "ClosedExpFollow"},
+		--{type = "ClosedExp", "String", action = Actions.outputString},
+		--{type = "ClosedExp", "Self", "ClosedExpFollow", action = Actions.outputSelf},
+		{type = "ClosedExp", "Universe", "Natural", action = Actions.outputUniverse},
+		{type = "ClosedExp", "OpenParenthesis", "Exp", "CloseParenthesis", "ClosedExpFollow"},
+		{type = "ClosedExpFollow", "LookupField", "ClosedExpFollow"},
+		{type = "ClosedExpFollow", ""},
 
-local Rules = {
-		{type = "Program", "Exp", action = Actions.setRoot},
+		{type = "ConsDef", "Period", "IdentifierAsString", "DoBeginConsDefArgList", "ConsDefArgDefList", action = Actions.extendADT},
 		
-		{type = "Exp", "ClosedExp", "ExpFollow"},
-
-		--{type = "Exp", "Let", "Identifier", "ClosedExpList", "SingleEqual", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushLet},
-		{type = "ExpFollow", "SingleEqual", "ChainedClosedExp", "Terminal", "Exp", action = Actions.pushAssign},
-
-		{type = "ExpFollow", "SingleColon", "ChainedClosedExp", action = Actions.pushAnnotate},
-		{type = "ExpFollow", "ChainedClosedExpFollow"},
+		--{type = "ConsDefArgDef", "OpenParenthesis", "PushedIdentifier", "SingleColon", "DoBeginBlockCapture", "ChainedClosedExp", "CloseParenthesis", action = Actions.bindConsDefArgument},
+		--{type = "ConsDefArgDefList", "ConsDefArgDef", "ConsDefArgDefList", action = Actions.endConsDef},
+		{type = "ConsDefArgDefList", "ConsDefArgDef", "ConsDefArgDefList", action = Actions.endConsDef},
+		{type = "ConsDefArgDefList", "", action = Actions.endInnerConsDef},
 		
-		{type = "ChainedClosedExp", "ClosedExp", "ChainedClosedExpFollow"},
-		{type = "ChainedClosedExpFollow", "SingleBarArrow", "ChainedClosedExp", action = Actions.pushLambda},
-		{type = "ChainedClosedExpFollow", "DoubleBarArrow", "ChainedClosedExp", action = Actions.pushPi},
+		{type = "ConsDefList", "ConsDef", "ConsDefListFollow"},
+		{type = "ConsDefList", ""},
+		{type = "ConsDefListFollow", "Bar", "ConsDefList"},
+		{type = "ConsDefListFollow", ""},
 		
-		{type = "ChainedClosedExpAmpersandFollow", "Ampersand", "ChainedClosedExp", action = Actions.pushOverload},
 		
-		{type = "DoChainedClosedExpFollowCallAction", "", action = Actions.pushCall},
+		{type = "ConsDesInner", "SingleLineArrow", "ClosedExp"},
+		{type = "ConsDesInner", "ArgDef", "ConsDesInner", action = Actions.endConsDesInnerArgument},
 		
-		{type = "ChainedClosedExpFollow", "ChainedClosedExpCallFollow"},
+		{type = "ConsDes", "Period", "IdentifierAsString", "DoBeginConsDesArguments", "ConsDesInner", action = Actions.endConsDes},
+		--{type = "DefaultConsDes", "ArgDef", "SingleLineArrow", "ClosedExp"},
+		--{type = "ConsDesList", "ConsDes", "ConsDesListFollow"},
+		--{type = "ConsDesListFollow", "Bar", "ConsDesList"},
+		--{type = "ConsDesListFollow", ""},
 		
-		{type = "ChainedClosedExpCallFollow", "ClosedExp", "DoChainedClosedExpFollowCallAction", "ChainedClosedExpCallFollow"},
-		{type = "ChainedClosedExpCallFollow", "ChainedClosedExpAmpersandFollow"},
-		{type = "ChainedClosedExpCallFollow", ""},
-
-		{type = "ClosedExpList", "ClosedExp", "ClosedExpList", action = Actions.pushArgumentList},
-		{type = "ClosedExpList", "", action = Actions.pushNull},
-
-		{type = "ConsDefList", "ClosedExp", "ClosedExpList", "ConsDefListFollow", action = Actions.pushConstructorList},
-		{type = "ConsDefList", "", action = Actions.pushNull},
-		{type = "ConsDefListFollow", "Comma", "ConsDefList"},
-		{type = "ConsDefListFollow", "", action = Actions.pushNull},
+		{type = "ConsDesList", "ConsDes", "ConsDesListFollow"},
+		--{type = "ConsDesList", ""},
+		{type = "ConsDesListFollow", "Bar", "ConsDesList"},
+		--{type = "ConsDesListFollow", "Bar", "DefaultConsDes"},
+		{type = "ConsDesListFollow", ""},
 		
-		{type = "ClosedExp", "Dollar", "ClosedExp", action =  Actions.pushEvaluateArgument},
-		{type = "ClosedExp", "Identifier", action = Actions.pushIdentifier},
-		{type = "ClosedExp", "String", action = Actions.pushString},
-		{type = "ClosedExp", "Natural", action = Actions.pushNatural},
-		{type = "ClosedExp", "Self", action = Actions.pushSelf},
-		{type = "ClosedExp", "Universe", "Natural", action = Actions.pushUniverse},
-		{type = "ClosedExp", "OpenBracket", "ConsDefList", "CloseBracket", action = Actions.pushADT},
-		{type = "ClosedExp", "OpenParenthesis", "Exp", "CloseParenthesis"},
+		
+		{type = "PushedIdentifier", "Identifier", action = Actions.pushIdentifier},
+		{type = "IdentifierAsString", "Identifier", action = Actions.outputString},
+		
+		{type = "DoBeginConsDefArgList", "", action = Actions.beginConsDefArgList},
+		{type = "DoBeginADT", "", action = Actions.beginADT},
+		--{type = "DoBindIdentifier", "", action = Actions.bindIdentifier},
+		--{type = "DoBindArgument", "", action = Actions.bindArgument},
+		{type = "DoBeginBlockCapture", "", action = Actions.beginBlockCapture},
+		{type = "DoBeginProgram", "", action = Actions.beginProgram},
+		{type = "DoExpLetBodyBegin", "", action = Actions.beginLetBody},
+		{type = "DoExpLetBodyEnd", "", action = Actions.endLetBody},
+		{type = "DoChainedClosedExpFollowCallAction", "", action = Actions.outputCall},
+		{type = "DoChainedClosedExpFollowMatchBeginAction", "", action = Actions.beginMatch},
+		{type = "DoChainedClosedExpFollowMatchEndAction", "", action = Actions.endMatch},
+		{type = "DoNamedConsDesListAction", "", action = Actions.outputDestruct},
+		{type = "DoDefaultDestructBegin", "", action = Actions.defaultDestructBegin},
+		{type = "DoBeginConsDesArguments", "", action = Actions.beginConsDesArguments},
 }
 
 local function IsNonterminal(rules, symbol)
@@ -107,145 +202,6 @@ local function IsNonterminal(rules, symbol)
 		if symbol == rule.type then return true end
 	end
 	return false
-end
-
-local function FirstOld(rules, symbol, encountered)
-	assert(symbol)
-	--if not encountered then encountered = {} end
-	local r = {}
-	--if encountered[symbol] then return r end
-	--encountered[symbol] = true
-	local isTerminal = true
-	for i, rule in ipairs(rules) do
-		if rule.type == symbol then
-			local first = First(rules, rule[1], encountered)
-			for s, _ in pairs(first) do
-				r[s] = true
-			end
-			if first[""] and rule[2] then
-				local second = First(rules, rule[2], encountered)
-				for s, _ in pairs(second) do
-					r[s] = true
-				end
-			end
-			--[[local hasEpsilon = false
-			local hasEncounteredNonEpsilon = false;
-			for _, s in ipairs(rule) do
-				repeat
-					local first = First(rules, s, encountered)
-					for f, _ in pairs(first) do
-						if f == "" then
-							hasEpsilon = true
-						else
-							r[f] = true
-						end
-					end
-					if not first[""] then
-						hasEncounteredNonEpsilon = true
-					end
-				until hasEncounteredNonEpsilon
-				if hasEpsilon then
-					r[""] = true
-				end
-			end]]
-			--[[for f, _ in pairs(First(rules, rule[1])) do
-				if r[f] then
-					error("First/First Conflict")
-				end
-				r[f] = true
-			end
-			if rule[#rule] == "" then
-				r[""] = true
-			end]]
-			isTerminal = false
-		end
-	end
-	if isTerminal then
-		r[symbol] = true
-	end
-	return r
-end
-
-local function FollowOld(rules, symbol, encountered)
-	if not encountered then encountered = {} end
-	if encountered[symbol] then 
-		--error("Recursion")
-		return {}
-	end
-	encountered[symbol] = true
-	assert(IsNonterminal(rules, symbol))
-	local r = {}
-	if symbol == "Program" then
-		r["Done"] = true
-	end
-	--[[for _, rule in ipairs(rules) do
-		for i, s in ipairs(rule) do
-			if s == symbol then
-				if rule[i + 1] then
-					local hasEpsilon = false
-					for f, _ in pairs(First(rules, rule[i + 1])) do
-						if f == "" then
-							hasEpsilon = true
-						else
-							r[f] = true
-						end
-					end
-					if hasEpsilon then
-						for f, _ in pairs(Follow(rules, rule.type, encountered)) do
-							r[f] = true
-						end
-					end
-				else
-					for f, _ in pairs(Follow(rules, rule.type, encountered)) do
-						r[f] = true
-					end
-					--r["Done"] = true
-				end
-			end
-		end
-	end]]
-		for _, rule in ipairs(rules) do
-			for i, s in ipairs(rule) do
-				if s == symbol then
-					if rule[i + 1] then
-						local hasEpsilon = false
-						for f, _ in pairs(First(rules, rule[i + 1])) do
-							if f == "" then
-								hasEpsilon = true
-							else
-								r[f] = true
-							end
-						end
-						if hasEpsilon then
-							for f, _ in pairs(Follow(rules, rule.type, encountered)) do
-								r[f] = true
-							end
-						end
-					else
-						for f, _ in pairs(Follow(rules, rule.type, encountered)) do
-							r[f] = true
-						end
-						r["Done"] = true
-					end
-				end
-			end
-		end
-	--[[for _, rule in ipairs(rules) do
-		for i, s in ipairs(rule) do
-			if s == symbol then
-				if rule[i + 1] then
-					for f, _ in pairs(First(rules, rule[i + 1])) do
-						r[f] = true
-					end
-				else
-					for f, _ in pairs(Follow(rules, rule.type, encountered)) do
-						r[f] = true
-					end
-				end
-			end
-		end
-	end]]
-	return r
 end
 
 local function Union(a, b)
@@ -281,7 +237,7 @@ local function First(rules, of)
 	end
 end
 
-local function Follow(rules, of, encountered)
+--[[local function Follow(rules, of, encountered)
 	if not encountered then encountered = {} end
 	if encountered[of] then return {} end
 	encountered[of] = true
@@ -298,6 +254,41 @@ local function Follow(rules, of, encountered)
 					needsRuleFollow = false
 					local first = First(rules, rule[i + 1])
 					if first[""] then needsRuleFollow = true end
+					first[""] = nil
+					result = Union(result, first)
+				end
+				if needsRuleFollow then
+					if of ~= rule.type then
+						result = Union(result, Follow(rules, rule.type, encountered))
+					end
+				end
+			end
+		end
+	end
+	return result
+end]]
+
+local function Follow(rules, of, encountered)
+	if not encountered then encountered = {} end
+	if encountered[of] then return {} end
+	encountered[of] = true
+	assert(IsNonterminal(rules, of))
+	local result = {}
+	if of == "Program" then
+		result["Done"] = true
+	end
+	for _, rule in ipairs(Rules) do
+		for i, s in ipairs(rule) do
+			if s == of then
+				local needsRuleFollow = true
+				if rule[i + 1] then
+					local first = First(rules, rule[i + 1])
+					local hadEpsilon = false
+					if first[""] then
+						result = Union(result, Follow(rules, rule[i + 1], encountered))
+					else
+						needsRuleFollow = false 
+					end
 					first[""] = nil
 					result = Union(result, first)
 				end
@@ -352,6 +343,7 @@ local function GenParseTable(rules)
 			end
 		end
 		if hasEpsilon then
+			--for s2, _ in pairs(Follow(rules, rule[1])) do
 			for s2, _ in pairs(Follow(rules, rule.type)) do
 				--assert(not t[rule.type][s2])
 				if t[rule.type][s2] then

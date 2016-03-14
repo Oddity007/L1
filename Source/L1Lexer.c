@@ -5,6 +5,7 @@
 #include "L1Array.h"
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 //#include <assert.h>
 
 void L1LexerInitialize(L1Lexer* self, const char* input)
@@ -96,6 +97,8 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 			case ' ':
 			case '\r':
 				break;
+			case '.':
+				return L1LexerTokenTypePeriod;
 			case ';':
 				return L1LexerTokenTypeTerminal;
 			case '(':
@@ -104,43 +107,24 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 				return L1LexerTokenTypeCloseParenthesis;
 			case ',':
 				return L1LexerTokenTypeComma;
-			case '{':
-				return L1LexerTokenTypeOpenBracket;
-			case '}':
-				return L1LexerTokenTypeCloseBracket;
 			case ':':
-				if (* self->input == ':')
-				{
-					self->input++;
-					return L1LexerTokenTypeDoubleColon;
-				}
 				return L1LexerTokenTypeSingleColon;
+			case '?':
+				return L1LexerTokenTypeMatch;
+			case '|':
+				return L1LexerTokenTypeBar;
 			case '=':
-				if (* self->input == '>')
-				{
-					self->input++;
-					return L1LexerTokenTypeDoubleBarArrow;
-				}
 				return L1LexerTokenTypeSingleEqual;
 			case '-':
 				if (* self->input == '>')
 				{
 					self->input++;
-					return L1LexerTokenTypeSingleBarArrow;
+					return L1LexerTokenTypeSingleLineArrow;
 				}
 				self->error = L1LexerErrorUnexpectedCharacter;
 				return L1LexerTokenTypeDone;
-			/*case '_':
-				if (strncmp(self->input, "_universe", 9) == 0)
-				{
-					self->input += 9;
-					return L1LexerTokenTypeUniverse;
-				}
-				return L1LexerTokenTypeUnderscore;*/
 			case '$':
 				return L1LexerTokenTypeDollar;
-			case '%':
-				return L1LexerTokenTypePercent;
 			case '&':
 				return L1LexerTokenTypeAmpersand;
 			case '#':
@@ -149,9 +133,29 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 					self->input += 3;
 					return L1LexerTokenTypeLet;
 				}
-				if (strncmp(self->input, "self", 4) == 0)
+				if (strncmp(self->input, "fn", 2) == 0)
+				{
+					self->input += 2;
+					return L1LexerTokenTypeFn;
+				}
+				if (strncmp(self->input, "pi", 2) == 0)
+				{
+					self->input += 2;
+					return L1LexerTokenTypePi;
+				}
+				if (strncmp(self->input, "sg", 2) == 0)
+				{
+					self->input += 2;
+					return L1LexerTokenTypeSigma;
+				}
+				if (strncmp(self->input, "adt", 3) == 0)
 				{
 					self->input += 3;
+					return L1LexerTokenTypeADT;
+				}
+				if (strncmp(self->input, "self", 4) == 0)
+				{
+					self->input += 4;
 					return L1LexerTokenTypeSelf;
 				}
 				if (strncmp(self->input, "universe", 8) == 0)
@@ -164,7 +168,6 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 					self->input += 7;
 					return L1LexerTokenTypeDeclare;
 				}
-				abort();
 				self->error = L1LexerErrorUnexpectedCharacter;
 				return L1LexerTokenTypeDone;
 			case '"':
@@ -234,6 +237,7 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 					found_end_of_multline_comment:
 					break;
 				}
+				break;
 			default:
 				if ('0' <= c and c <= '9')
 				{
@@ -249,7 +253,7 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 					return L1LexerTokenTypeNatural;
 				}
 				{
-					const char restrictedCharacters[UCHAR_MAX] =
+					/*static const char restrictedCharacters[UCHAR_MAX] =
 					{
 						[' '] = 1,
 						['\r'] = 1,
@@ -258,18 +262,17 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 						['/'] = 1,
 						['('] = 1,
 						[')'] = 1,
+						['.'] = 1,
+						['?'] = 1,
+						['|'] = 1,
 						[';'] = 1,
 						['-'] = 1,
-						//['_'] = 1,
 						['$'] = 1,
-						['%'] = 1,
 						['='] = 1,
 						[':'] = 1,
 						['&'] = 1,
 						['#'] = 1,
 						[','] = 1,
-						['{'] = 1,
-						['}'] = 1,
 						['\0'] = 1,
 					};
 					do
@@ -278,7 +281,20 @@ L1LexerTokenType L1LexerLex(L1Lexer* self)
 						c = * self->input;
 						self->input++;
 					}
-					while (not restrictedCharacters[(unsigned char) c]);
+					while (not restrictedCharacters[(unsigned char) c]);*/
+					if (not isalpha(c))
+					{
+						self->error = L1LexerErrorUnexpectedCharacter;
+						return L1LexerTokenTypeDone;
+					}
+						
+					do
+					{
+						L1ArrayAppend(& self->characterBuffer, & c, 1);
+						c = * self->input;
+						self->input++;
+					}
+					while (isalnum(c));
 					self->input--;
 					return L1LexerTokenTypeIdentifier;
 				}

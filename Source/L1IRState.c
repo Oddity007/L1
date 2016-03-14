@@ -1,347 +1,841 @@
 #include "L1IRState.h"
 #include <iso646.h>
 
-#include "L1IRSlotDescriptions"
-#include "L1IRSlotAccessors"
-
-static L1IRSlotType SlotTypeForBlock(L1IRGlobalStateBlockType type)
-{
-	switch (type)
-	{
-		case L1IRGlobalStateBlockTypeForeignFunction:
-			return L1IRSlotTypeLambda;
-		case L1IRGlobalStateBlockTypeLambda:
-			return L1IRSlotTypeLambda;
-		case L1IRGlobalStateBlockTypePi:
-			return L1IRSlotTypePi;
-		case L1IRGlobalStateBlockTypeSigma:
-			return L1IRSlotTypeSigma;
-		case L1IRGlobalStateBlockTypeADT:
-			return L1IRSlotTypeADT;
-		default:
-			break;
-	}
-	abort();
-}
-
 ///State Boilerplate
 
-void L1IRLocalStateInitialize(L1IRLocalState* self)
+typedef struct ExternalSlotReference ExternalSlotReference;
+struct ExternalSlotReference
+{
+	bool isActive;
+	L1IRAddress slotRef;
+};
+
+void L1IRStateInitialize(L1IRState* self)
 {
 	L1ArrayInitialize(& self->slots);
-	L1ArrayInitialize(& self->gcBarriers);
-	self->callDepth = 0;
+	L1ArrayInitialize(& self->externalSlotRefs);
+	//L1ArrayInitialize(& self->slotReferenceCounts);
 }
 
-void L1IRLocalStateDeinitialize(L1IRLocalState* self)
+void L1IRStateDeinitialize(L1IRState* self)
 {
 	L1ArrayDeinitialize(& self->slots);
-	L1ArrayDeinitialize(& self->gcBarriers);
-	self->callDepth = 0;
+	L1ArrayDeinitialize(& self->externalSlotRefs);
+	//L1ArrayDeinitialize(& self->slotReferenceCounts);
 }
 
-L1IRLocalAddress L1IRLocalStateCreateSlot(L1IRLocalState* self, L1IRSlot slot)
+L1IRStateExternalSlotRef L1IRStateAcquireExternalSlotRef(L1IRState* self, L1IRAddress slotRef)
 {
+	ExternalSlotReference reference;
+	reference.isActive = true;
+	reference.slotRef = slotRef;
+	
+	
+	ExternalSlotReference* references = L1ArrayGetElements(& self->externalSlotRefs);
+	size_t referenceCount = L1ArrayGetElementCount(& self->externalSlotRefs);
+	
+	for (size_t i = 0; i < referenceCount; i++)
+	{
+		if (references[i].isActive)
+		{
+			references[i] = reference;
+			return i;
+		}
+	}
+	
+	L1ArrayPush(& self->externalSlotRefs, & reference, sizeof(ExternalSlotReference));
+	return referenceCount;
+}
+
+void L1IRStateReleaseExternalSlotRef(L1IRState* self, L1IRStateExternalSlotRef ref)
+{
+	ExternalSlotReference* references = L1ArrayGetElements(& self->externalSlotRefs);
+	size_t referenceCount = L1ArrayGetElementCount(& self->externalSlotRefs);
+	assert(ref < referenceCount);
+	assert(references[ref].isActive);
+	references[ref].isActive = false;
+	
+	for (size_t i = referenceCount; i-- > 0;)
+	{
+		if (not references[i].isActive)
+			L1ArrayPop(& self->externalSlotRefs, NULL, sizeof(ExternalSlotReference));
+	}
+	
+	//L1ArrayPop(& self->externalSlotRefs, & reference, sizeof(ExternalSlotReference));
+	//if (L1ArrayGetElementCount(& slot->externalSlotRefs) == )
+}
+
+L1IRAddress L1IRStateGetExternalSlotRefCurrentSlotRef(L1IRState* self, L1IRStateExternalSlotRef ref)
+{
+	ExternalSlotReference* references = L1ArrayGetElements(& self->externalSlotRefs);
+	size_t referenceCount = L1ArrayGetElementCount(& self->externalSlotRefs);
+	assert(ref < referenceCount);
+	assert(references[ref].isActive);
+	return references[ref].slotRef;
+}
+
+/*L1IRAddress L1IRStateRetainSlot(L1IRState* self, L1IRAddress slotRef)
+{
+	size_t* referenceCounts = L1ArrayGetElements(& self->slotReferenceCounts);
+	size_t referenceCountCount = L1ArrayGetElementCount(& self->slotReferenceCounts);
+	assert(slotRef < referenceCountCount);
+	referenceCounts[slotRef]++;
+	return slotRef;
+}
+
+void L1IRStateReleaseSlot(L1IRState* self, L1IRAddress slotRef)
+{
+	size_t* referenceCounts = L1ArrayGetElements(& self->slotReferenceCounts);
+	size_t referenceCountCount = L1ArrayGetElementCount(& self->slotReferenceCounts);
+	assert(slotRef < referenceCountCount);
+	assert(referenceCounts[slotRef] > 0);
+	referenceCounts[slotRef]--;
+}*/
+
+#include <stdio.h>
+#include "L1IRSlotDebugInfo"
+
+L1IRAddress L1IRStateCreateSlotRaw(L1IRState* self, L1IRSlot slot)
+{
+	const L1IRSlot* slots = L1ArrayGetElements(& self->slots);
+	size_t slotCount = L1ArrayGetElementCount(& self->slots);
+	
+	for (L1IRAddress i = 0; i < slotCount; i++)
+		if (slots[i] == slot)
+			return i;
+	
+	//fprintf(stdout, "created #%u: %s (%u, %u, %u)\n", (unsigned) L1ArrayGetElementCount(& self->slots), L1IRSlotTypeAsString(L1IRExtractSlotType(slot)), (unsigned) L1IRExtractSlotOperand(slot, 0), (unsigned) L1IRExtractSlotOperand(slot, 1), (unsigned) L1IRExtractSlotOperand(slot, 2));
+	
+	//L1ArrayPush(& self->slots, (size_t[]){0}, sizeof(L1IRSlot));
 	L1ArrayPush(& self->slots, & slot, sizeof(L1IRSlot));
 	return L1ArrayGetElementCount(& self->slots) - 1;
 }
 
-void L1IRGlobalStateInitialize(L1IRGlobalState* self)
+#include "L1IRSlotDescriptions"
+//#include <stdio.h>
+
+static L1IRSlot GetSlot(L1IRState* self, L1IRAddress address)
 {
-	L1ArrayInitialize(& self->blocks);
+	//printf("%s(_, %u): slot count %u\n", __func__, (unsigned) address, (unsigned) L1ArrayGetElementCount(& self->slots));
+	assert(address < L1ArrayGetElementCount(& self->slots));
+	const L1IRSlot* slots = L1ArrayGetElements(& self->slots);
+	return slots[address];
 }
 
-void L1IRGlobalStateDeinitialize(L1IRGlobalState* self)
-{
-	const L1IRGlobalStateBlock* blocks = L1ArrayGetElements(& self->blocks);
-	size_t blockCount = L1ArrayGetElementCount(& self->blocks);
-
-	for (size_t i = 0; i < blockCount; i++)
-	{
-		if (L1IRGlobalStateBlockIsNative(blocks + i))
-			free(blocks[i].native.slots);
-	}
-	L1ArrayDeinitialize(& self->blocks);
-}
-
-//Garbage Collection / Normalization / Deadcode Eliminator / Stack Compaction
-
-static uint16_t CompactLocalGarbage(L1IRSlot* slots, uint16_t slotStart, uint16_t slotCount, uint16_t* roots, size_t rootCount)
-{
-	//if (rootCount == 0 or slotCount == slotStart) return slotStart;
-	//assert (slotCount > slotStart);
-	uint16_t maxUsedSlotCount = slotStart;
-	//Mark roots
-	for (size_t i = 0; i < rootCount; i++)
-	{
-		assert (roots[i] < slotCount);
-		if (roots[i] + 1 > maxUsedSlotCount) maxUsedSlotCount = roots[i] + 1;
-		L1IRSetSlotAnnotation(slots + roots[i], 1);
-	}
-
-	if (maxUsedSlotCount == slotStart) return slotStart;
-
-	uint16_t finalSlotCount = slotStart;
-
-	//Propagate retain marks
-	for (uint16_t i = maxUsedSlotCount; i-- > slotStart;)
-	{
-		L1IRSlot slot = slots[i];
-		L1IRSlotType type = L1IRExtractSlotType(slot);
-		if (not IsImplicitRoot(type) and not L1IRExtractSlotAnnotation(slot)) continue;
-		finalSlotCount++;
-		for (uint8_t j = 0; j < 3; j++)
-		{
-			if (not SlotTypeArgumentIsLocalAddress(type, j)) continue;
-			uint16_t operand = L1IRExtractSlotOperand(slot, j);
-			if (operand < slotStart) continue;
-			L1IRSetSlotAnnotation(slots + operand, 1);
-		}
-	}
-
-	uint16_t* slotRemappings = malloc(sizeof(uint16_t) * (maxUsedSlotCount - slotStart));
-
-	uint16_t finalSlotIndex = slotStart;
-	
-	//Compact reachable memory and fix references
-	for (uint16_t i = slotStart; i < maxUsedSlotCount; i++)
-	{
-		L1IRSlot slot = slots[i];
-		slotRemappings[i - slotStart] = UINT16_MAX;
-		L1IRSlotType type = L1IRExtractSlotType(slot);
-		if (not IsImplicitRoot(type) and not L1IRExtractSlotAnnotation(slot)) continue;
-		uint16_t operands[3] = {0, 0, 0};
-		for (uint8_t j = 0; j < 3; j++)
-		{
-			operands[j] = L1IRExtractSlotOperand(slot, j);
-			if (not SlotTypeArgumentIsLocalAddress(type, j)) continue;
-			operands[j] = slotRemappings[operands[j] - slotStart];
-		}
-		slotRemappings[i - slotStart] = finalSlotIndex;
-		slots[finalSlotIndex] = L1IRMakeSlot(type, operands[0], operands[1], operands[2]);
-		finalSlotIndex++;
-	}
-	
-	//Update root handles
-	for (size_t i = 0; i < rootCount; i++)
-	{
-		roots[i] = slotRemappings[roots[i] - slotStart];
-	}
-	
-	free(slotRemappings);
-
-	return finalSlotCount;
-}
-
-void L1IRGlobalStatePushGCBarrier(L1IRGlobalState* self, L1IRLocalState* localState)
-{
-	size_t slotCount = L1ArrayGetElementCount(& localState->slots);
-	
-	L1ArrayPush(& localState->gcBarriers, & slotCount, sizeof(size_t));
-}
-
-void L1IRGlobalStatePopGCBarrier(L1IRGlobalState* self, L1IRLocalState* localState, uint16_t* roots, size_t rootCount)
-{
-	size_t barrierSlotCount = 0;
-	L1ArrayPop(& localState->gcBarriers, & barrierSlotCount, sizeof(size_t));
-	size_t oldSlotCount = L1ArrayGetElementCount(& localState->slots);
-	barrierSlotCount = CompactLocalGarbage(L1ArrayGetElements(& localState->slots), barrierSlotCount, oldSlotCount, roots, rootCount);
-	L1ArraySetElementCount(& localState->slots, barrierSlotCount, sizeof(L1IRSlot));
-}
-
-//Dependency checking
-
-static bool SlotDependsOnSlot(L1IRGlobalState* self, L1IRLocalState* localState, uint16_t dependentLocalAddress, uint16_t dependencyLocalAddress)
+static bool SlotDependsOnSlot(L1IRState* self, L1IRAddress dependentLocalAddress, L1IRAddress dependencyLocalAddress)
 {
 	if (dependencyLocalAddress == dependentLocalAddress) return true;
 	if (dependencyLocalAddress > dependentLocalAddress) return false;
-	const L1IRSlot* slots = L1ArrayGetElements(& localState->slots);
+	const L1IRSlot* slots = L1ArrayGetElements(& self->slots);
 	L1IRSlot dependentSlot = slots[dependentLocalAddress];
 	L1IRSlotType type = L1IRExtractSlotType(dependentSlot);
 	for (uint8_t i = 0; i < 3; i++)
 		if (SlotTypeArgumentIsLocalAddress(type, i))
-			if (SlotDependsOnSlot(self, localState, L1IRExtractSlotOperand(dependentSlot, i), dependencyLocalAddress))
+			if (SlotDependsOnSlot(self, L1IRExtractSlotOperand(dependentSlot, i), dependencyLocalAddress))
 				return true;
 	return false;
 }
 
-//Block Creation
-
-L1IRGlobalAddress L1IRGlobalStateCreateNativeBlock(L1IRGlobalState* self, L1IRGlobalStateBlockType type, const L1IRSlot* slots, uint16_t slotCount, L1IRLocalAddress argumentLocalAddress)
+L1IRSlot L1IRStateGetSlot(L1IRState* self, L1IRAddress address)
 {
-	assert(type not_eq L1IRGlobalStateBlockTypeForeignFunction);
-	
-	const L1IRSlot* normalizedSlots = slots;
-	uint16_t normalizedSlotCount = slotCount;
-	const L1IRGlobalStateBlock* blocks = L1ArrayGetElements(& self->blocks);
-	size_t blockCount = L1ArrayGetElementCount(& self->blocks);
-	assert (normalizedSlotCount > 0);
-	assert (slotCount > 0);
-
-	L1IRGlobalAddress address = 0;
-	for (size_t i = 0; i < blockCount; i++)
-	{
-		if (type == L1IRGlobalStateBlockTypeADT) break;
-		if (blocks[i].type not_eq type) continue;
-		if (blocks[i].native.slotCount not_eq normalizedSlotCount) continue;
-		if (memcmp(blocks->native.slots, normalizedSlots, sizeof(L1IRSlot) * normalizedSlotCount) not_eq 0) continue;
-		address = i;
-		return address;
-	}
-
-	L1IRGlobalStateBlock block;
-	block.type = type;
-	block.native.slotCount = normalizedSlotCount;
-	block.native.slots = memcpy(malloc(sizeof(L1IRSlot) * normalizedSlotCount), normalizedSlots, sizeof(L1IRSlot) * normalizedSlotCount);
-
-	L1ArrayAppend(& self->blocks, & block, sizeof(L1IRGlobalStateBlock));
-	address = blockCount;
-
-	return address;
+	return GetSlot(self, address);
 }
 
-L1IRGlobalAddress L1IRGlobalStateCreateForeignBlock(L1IRGlobalState* self, L1IRGlobalStateBlockType type, L1IRGlobalStateBlockCallback callback, void* userdata)
+#include "L1IRSlotAccessors"
+
+void L1IRStateCollectGarbage(L1IRState* self)
 {
-	assert(type == L1IRGlobalStateBlockTypeForeignFunction);
+	ExternalSlotReference* references = L1ArrayGetElements(& self->externalSlotRefs);
+	size_t referenceCount = L1ArrayGetElementCount(& self->externalSlotRefs);
+	size_t slotCount = L1ArrayGetElementCount(& self->slots);
+	L1IRSlot* slots = L1ArrayGetElements(& self->slots);
 	
-	const L1IRGlobalStateBlock* blocks = L1ArrayGetElements(& self->blocks);
-	size_t blockCount = L1ArrayGetElementCount(& self->blocks);
-
-	L1IRGlobalAddress address = 0;
-
-	L1IRGlobalStateBlock block;
-	block.type = type;
-	block.foreign.callback = callback;
-	block.foreign.userdata = userdata;
-
-	L1ArrayAppend(& self->blocks, & block, sizeof(L1IRGlobalStateBlock));
-	address = blockCount;
-
-	return address;
-}
-
-static L1IRLocalAddress WalkCaptureChain(const L1IRSlot* slots, L1IRLocalAddress captureLocalAddress, size_t depth)
-{
-	L1IRSlot captureSlot = slots[captureLocalAddress];
-	for(uint16_t i = 0; i < depth; i++)
+	L1IRAddress* remaps = malloc(sizeof(L1IRAddress) * slotCount);
+	
+	//Do external -> internal tag propagation
+	for (size_t i = 0; i < referenceCount; i++)
 	{
-		captureSlot = slots[CallCapture_captures(captureSlot)];
-	}
-	return CallCapture_captured(captureSlot);
-}
-
-L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* localState, L1IRGlobalStateEvaluationFlags flags, L1IRGlobalAddress calleeAddress, L1IRLocalAddress argumentLocalAddress, L1IRLocalAddress captureLocalAddress, L1IRLocalAddress* finalArgumentLocalAddressOut)
-{
-	L1IRLocalAddress resultLocalAddress = 0;
-	L1IRLocalAddress finalArgumentLocalAddress = 0;
-
-	assert (L1ArrayGetElementCount(& self->blocks) > calleeAddress);
-	const L1IRGlobalStateBlock* block = calleeAddress + (const L1IRGlobalStateBlock*) L1ArrayGetElements(& self->blocks);
-	
-	localState->callDepth++;
-	
-	L1IRGlobalStatePushGCBarrier(self, localState);
-	
-	if (not L1IRGlobalStateBlockIsNative(block))
-	{
-		assert(flags & L1IRGlobalStateEvaluationFlagHasArgument);
-		assert(not (flags & L1IRGlobalStateEvaluationFlagHasCaptured));
-		finalArgumentLocalAddress = block->foreign.callback(self, localState, calleeAddress, argumentLocalAddress, finalArgumentLocalAddressOut, block->foreign.userdata);
-		goto resultComputed;
+		if (not references[i].isActive)
+			continue;
+		assert(references[i].slotRef < slotCount);
+		L1IRUpdateSlotAnnotationFlags(slots + references[i].slotRef, L1IRSlotAnnotationFlagIsConfirmedReachable, true);
 	}
 	
-	assert (block->native.slotCount > 0);
-	assert (block->native.slots);
-	uint16_t* mergingSlotRemappings = malloc(sizeof(uint16_t) * block->native.slotCount);
-	
-	for (uint16_t i = 0; i < block->native.slotCount; i++)
+	//Propagate tags
+	for (size_t i = slotCount; i-- > 0; )
 	{
-		const L1IRSlot prototypeSlot = block->native.slots[i];
-		L1IRSlotType type = L1IRExtractSlotType(prototypeSlot);
-		uint16_t operands[3] = {0, 0, 0};
-		for (uint8_t j = 0; j < 3; j++) operands[j] = L1IRExtractSlotOperand(prototypeSlot, j);
-		for (uint8_t j = 0; j < 3; j++) operands[j] = SlotTypeArgumentIsLocalAddress(type, j) ? mergingSlotRemappings[operands[j]]: operands[j];
-		/*for (uint8_t j = 0; j < 3; j++)
+		L1IRSlot slot = slots[i];
+		L1IRSlotType type = L1IRExtractSlotType(slot);
+		uint8_t annotation = L1IRExtractSlotAnnotation(slot);
+		if (not (annotation & L1IRSlotAnnotationFlagIsConfirmedReachable))
+			continue;
+		for (uint8_t j = 0; j < 3; j++)
+			if (SlotTypeArgumentIsLocalAddress(type, j))
+				L1IRUpdateSlotAnnotationFlags(slots + L1IRExtractSlotOperand(slot, j), L1IRSlotAnnotationFlagIsConfirmedReachable, true);
+	}
+	
+	//Compact heap
+	size_t newSlotCount = 0;
+	for (size_t i = 0; i < slotCount; i++)
+	{
+		L1IRSlot slot = slots[i];
+		uint8_t annotation = L1IRExtractSlotAnnotation(slot);
+		if (not (annotation & L1IRSlotAnnotationFlagIsConfirmedReachable))
+			continue;
+		L1IRSlotType type = L1IRExtractSlotType(slot);
+		uint16_t operands[3];
+		for (uint8_t j = 0; j < 3; j++)
 		{
-			if (not SlotTypeArgumentIsLocalAddress(type, j))
-				break;
-			const L1IRSlot* slots = L1ArrayGetElements(& localState->slots);
-			L1IRSlot errorSlot = slots[operands[j]];
-			if (L1IRExtractSlotType(errorSlot) not_eq L1IRSlotTypeError)
-				break;
-			goto done;
-		}*/
-		switch (type)
+			operands[j] = L1IRExtractSlotOperand(slot, j);
+			if (SlotTypeArgumentIsLocalAddress(type, j))
+			{
+				assert(operands[j] < i);
+				operands[j] = remaps[operands[j]];
+			}
+		}
+		slots[newSlotCount] = L1IRMakeSlot(type, operands[0], operands[1], operands[2]);
+		remaps[i] = newSlotCount;
+		newSlotCount++;
+	}
+	
+	//Remap external references
+	for (size_t i = 0; i < referenceCount; i++)
+	{
+		if (not references[i].isActive)
+			continue;
+		assert(references[i].slotRef < slotCount);
+		references[i].slotRef = remaps[references[i].slotRef];
+	}
+	
+	free(remaps);
+	
+	L1ArraySetElementCount(& self->slots, newSlotCount, sizeof(L1IRSlot));
+}
+
+static L1IRAddress TypeOf(L1IRState* self, L1IRAddress slotRef);
+static L1IRAddress Normalize(L1IRState* self, L1IRAddress slotRef);
+static L1IRAddress Substitute(L1IRState* self, L1IRAddress slotRef, L1IRAddress argumentRef);
+static L1IRAddress SubstituteWithCaptureChain(L1IRState* self, L1IRAddress slotRef, L1IRAddress capturesRef);
+
+static L1IRAddress CreatePair(L1IRState* self, L1IRAddress firstRef, L1IRAddress secondRef)
+{
+	return L1IRStateCreateSlot(self, L1IRMakeSlot(L1IRSlotTypePair, firstRef, secondRef, 0));
+}
+
+static L1IRAddress CreateUnit(L1IRState* self)
+{
+	return L1IRStateCreateSlot(self, L1IRMakeSlot(L1IRSlotTypeUnit, 0, 0, 0));
+}
+
+static L1IRAddress CreateError(L1IRState* self, L1IRErrorType errorType)
+{
+	abort();
+	return L1IRStateCreateSlot(self, L1IRMakeSlot(L1IRSlotTypeError, errorType, 0, 0));
+}
+
+static bool AreEqual(L1IRState* self, L1IRAddress value1Ref, L1IRAddress value2Ref)
+{
+	value1Ref = Normalize(self, value1Ref);
+	value2Ref = Normalize(self, value2Ref);
+	return value1Ref == value2Ref;
+}
+
+static bool IsOfType(L1IRState* self, L1IRAddress valueRef, L1IRAddress typeRef)
+{
+	//return true;
+	if (L1IRExtractSlotType(GetSlot(self, typeRef)) == L1IRSlotTypeUnknown)
+		return true;
+	return AreEqual(self, TypeOf(self, valueRef), typeRef);
+}
+
+static bool IsRawData(L1IRState* self, L1IRAddress slotRef)
+{
+	L1IRSlot slot = GetSlot(self, slotRef);
+	L1IRSlotType slotType = L1IRExtractSlotType(slot);
+	return (slotType == L1IRSlotTypeRawData32) or (slotType == L1IRSlotTypeRawData32Extended);
+}
+
+static bool IsValue(L1IRState* self, L1IRAddress slotRef)
+{
+	L1IRSlot slot = GetSlot(self, slotRef);
+	switch (L1IRExtractSlotType(slot))
+	{
+		case L1IRSlotTypeUnit:
+		case L1IRSlotTypeUnknown:
+		case L1IRSlotTypeUnitType:
+		case L1IRSlotTypeUniverse:
+		case L1IRSlotTypePairType:
+		case L1IRSlotTypeTypeOf:
+		case L1IRSlotTypeNormalize:
+		case L1IRSlotTypeSubstitute:
+		case L1IRSlotTypeForall:
+		case L1IRSlotTypeADT:
+		case L1IRSlotTypeExtendADT:
+		case L1IRSlotTypeRecursive:
+		case L1IRSlotTypeLambda:
+		case L1IRSlotTypeArgument:
+		case L1IRSlotTypeConstructed:
+		case L1IRSlotTypeCall:
+		case L1IRSlotTypePair:
+		case L1IRSlotTypeProject:
+		case L1IRSlotTypeLookup:
+		case L1IRSlotTypeEndMatch:
+		case L1IRSlotTypeError:
+			return true;
+		case L1IRSlotTypeRawData32:
+		case L1IRSlotTypeRawData32Extended:
+		case L1IRSlotTypeBeginMatch:
+		case L1IRSlotTypeMatchCase:
+		case L1IRSlotTypeMatchFailure:
+		case L1IRSlotTypeMatchSuccess:
+			return false;
+	}
+	return false;
+}
+
+/*static bool IsType(L1IRState* self, L1IRAddress slotRef)
+{
+	L1IRSlot slot = GetSlot(self, slotRef);
+	switch (L1IRExtractSlotType(slot))
+	{
+		case L1IRSlotTypeUnknown:
+		case L1IRSlotTypeUnitType:
+		case L1IRSlotTypeUniverse:
+		case L1IRSlotTypePairType:
+		case L1IRSlotTypeTypeOf:
+		case L1IRSlotTypeADT:
+		case L1IRSlotTypeExtendADT:
+		case L1IRSlotTypeForall:
+			return true;
+		case L1IRSlotTypeUnit:
+			return false;
+		case L1IRSlotTypeNormalize:
+		case L1IRSlotTypeSubstitute:
+		case L1IRSlotTypeRecursive:
+		case L1IRSlotTypeLambda:
+		case L1IRSlotTypeArgument:
+		case L1IRSlotTypeConstructed:
+		case L1IRSlotTypeCall:
+		case L1IRSlotTypePair:
+		case L1IRSlotTypeProject:
+		case L1IRSlotTypeLookup:
+		case L1IRSlotTypeEndMatch:
+			return true;
+		case L1IRSlotTypeRawData32:
+		case L1IRSlotTypeError:
+		case L1IRSlotTypeRawData32Extended:
+		case L1IRSlotTypeBeginMatch:
+		case L1IRSlotTypeMatchCase:
+		case L1IRSlotTypeMatchFailure:
+		case L1IRSlotTypeMatchSuccess:
+			return false;
+	}
+	return false;
+}*/
+
+static bool IsPotentiallyADT(L1IRState* self, L1IRAddress slotRef)
+{
+	L1IRSlot slot = GetSlot(self, slotRef);
+	switch (L1IRExtractSlotType(slot))
+	{
+		case L1IRSlotTypeADT:
+		case L1IRSlotTypeExtendADT:
+		case L1IRSlotTypeRecursive:
+		case L1IRSlotTypeNormalize:
+		case L1IRSlotTypeSubstitute:
+		case L1IRSlotTypeArgument:
+		case L1IRSlotTypeCall:
+		case L1IRSlotTypeProject:
+		case L1IRSlotTypeEndMatch:
+		case L1IRSlotTypeTypeOf:
+		case L1IRSlotTypeError:
+			return true;
+		case L1IRSlotTypeUnknown:
+		case L1IRSlotTypeUnitType:
+		case L1IRSlotTypeUniverse:
+		case L1IRSlotTypePairType:
+		case L1IRSlotTypeForall:
+		case L1IRSlotTypeUnit:
+		case L1IRSlotTypeLambda:
+		case L1IRSlotTypeConstructed:
+		case L1IRSlotTypePair:
+		case L1IRSlotTypeLookup:
+		case L1IRSlotTypeRawData32:
+		case L1IRSlotTypeRawData32Extended:
+		case L1IRSlotTypeBeginMatch:
+		case L1IRSlotTypeMatchCase:
+		case L1IRSlotTypeMatchFailure:
+		case L1IRSlotTypeMatchSuccess:
+			return false;
+	}
+	return false;
+}
+
+static bool IsMatch(L1IRState* self, L1IRAddress slotRef)
+{
+	L1IRSlot slot = GetSlot(self, slotRef);
+	switch (L1IRExtractSlotType(slot))
+	{
+		case L1IRSlotTypeADT:
+		case L1IRSlotTypeExtendADT:
+		case L1IRSlotTypeRecursive:
+		case L1IRSlotTypeNormalize:
+		case L1IRSlotTypeSubstitute:
+		case L1IRSlotTypeArgument:
+		case L1IRSlotTypeCall:
+		case L1IRSlotTypeProject:
+		case L1IRSlotTypeTypeOf:
+		case L1IRSlotTypeUnknown:
+		case L1IRSlotTypeUnitType:
+		case L1IRSlotTypeUniverse:
+		case L1IRSlotTypePairType:
+		case L1IRSlotTypeForall:
+		case L1IRSlotTypeUnit:
+		case L1IRSlotTypeLambda:
+		case L1IRSlotTypeConstructed:
+		case L1IRSlotTypePair:
+		case L1IRSlotTypeLookup:
+		case L1IRSlotTypeRawData32:
+		case L1IRSlotTypeError:
+		case L1IRSlotTypeRawData32Extended:
+			return false;
+		case L1IRSlotTypeBeginMatch:
+		case L1IRSlotTypeMatchCase:
+		case L1IRSlotTypeMatchFailure:
+		case L1IRSlotTypeMatchSuccess:
+			return true;
+	}
+	return false;
+}
+
+static bool IsValid(L1IRState* self, L1IRAddress slotRef);
+
+static bool IsValidSlot(L1IRState* self, L1IRSlot slot)
+{
+	//L1IRSlot slot = GetSlot(self, slotRef);
+	L1IRSlot slotType = L1IRExtractSlotType(slot);
+	
+	for (uint8_t i = 0; i < 3; i++)
+	{
+		if (SlotTypeArgumentIsLocalAddress(slotType, i))
+			if (not IsValid(self, L1IRExtractSlotOperand(slot, i)))
+				return false;
+	}
+	
+	switch (slotType)
+	{
+		case L1IRSlotTypeUnit:
+		case L1IRSlotTypeUnknown:
+		case L1IRSlotTypeUnitType:
+		case L1IRSlotTypeUniverse:
+		case L1IRSlotTypeRawData32:
+		case L1IRSlotTypeTypeOf:
+		case L1IRSlotTypeNormalize:
+		case L1IRSlotTypeSubstitute:
+		case L1IRSlotTypePairType:
+		case L1IRSlotTypeADT:
+		case L1IRSlotTypeForall:
+		case L1IRSlotTypeLambda:
+		case L1IRSlotTypeRecursive:
+		case L1IRSlotTypeArgument:
+		case L1IRSlotTypeCall:
+		case L1IRSlotTypePair:
+		case L1IRSlotTypeBeginMatch:
 		{
-			case L1IRSlotTypeUnresolvedSymbol:
-			case L1IRSlotTypeError:
-				{
-					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeError, L1IRErrorTypeInvalidInstruction, 0, 0));
-					goto finish;
-				}
-			case L1IRSlotTypeArgument:
-				assert(operands[0] == 0);
-				if (not (flags & L1IRGlobalStateEvaluationFlagHasArgument))
-					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeArgument, localState->callDepth - 1, operands[1], 0));
-				else
-					mergingSlotRemappings[i] = argumentLocalAddress;
-				
-				if (finalArgumentLocalAddressOut)
-					finalArgumentLocalAddress = mergingSlotRemappings[i];
-				
-				if (not L1IRGlobalStateIsOfType(self, localState, mergingSlotRemappings[i], operands[1]))
-				{
-					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeError, L1IRErrorTypeTypeChecking, 0, 0));
-					goto finish;
-					//abort();
-				}
-				break;
-			case L1IRSlotTypeCaptured:
-				if (flags & L1IRGlobalStateEvaluationFlagHasCaptured)
-					mergingSlotRemappings[i] = WalkCaptureChain(L1ArrayGetElements(& localState->slots), captureLocalAddress, operands[0]);
-				else
-					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeCaptured, operands[0], 0, 0));
-				break;
-			case L1IRSlotTypeSelf:
-				if (localState->callDepth > 1)
-				{
-					uint16_t captureLocalAddress = 0;
+			for (uint8_t i = 0; i < 3; i++)
+			{
+				if (SlotTypeArgumentIsLocalAddress(slotType, i))
+					if (not IsValue(self, L1IRExtractSlotOperand(slot, i)))
+						return false;
+			}
+			return true;
+		}
+		case L1IRSlotTypeError:
+			return Error_type(slot) <= (uint16_t) L1IRErrorTypeLast;
+		case L1IRSlotTypeProject:
+			return IsValue(self, Project_pair(slot)) and (Project_index(slot) < 2);
+		case L1IRSlotTypeRawData32Extended:
+		{
+			L1IRAddress extensionRef = RawData32Extended_extension(slot);
+			return IsRawData(self, extensionRef);
+		}
+		case L1IRSlotTypeExtendADT:
+			return IsPotentiallyADT(self, ExtendADT_adt(slot)) and IsRawData(self, ExtendADT_name(slot)) and IsValue(self, ExtendADT_constructor(slot));
+		case L1IRSlotTypeConstructed:
+			return IsPotentiallyADT(self, Constructed_adt(slot)) and IsRawData(self, Constructed_name(slot)) and IsValue(self, Constructed_captures(slot));
+		case L1IRSlotTypeLookup:
+			return IsPotentiallyADT(self, Lookup_namespace(slot)) and IsRawData(self, Lookup_name(slot));
+		case L1IRSlotTypeMatchCase:
+			return IsMatch(self, MatchCase_match(slot)) and IsRawData(self, MatchCase_name(slot)) and IsValue(self, MatchCase_handler(slot));
+		case L1IRSlotTypeEndMatch:
+			return IsMatch(self, EndMatch_match(slot)) and IsValue(self, EndMatch_resultType(slot));
+		case L1IRSlotTypeMatchFailure:
+			return IsValue(self, MatchFailure_value(slot));
+		case L1IRSlotTypeMatchSuccess:
+			return IsValue(self, MatchSuccess_result(slot));
+	}
+	return false;
+}
 
-					if (flags & L1IRGlobalStateEvaluationFlagHasCaptured)
-						captureLocalAddress = WalkCaptureChain(L1ArrayGetElements(& localState->slots), captureLocalAddress, operands[0]);
-					else
-						captureLocalAddress = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(L1IRSlotTypeCaptured, 0, 0, 0));
+static bool IsValid(L1IRState* self, L1IRAddress slotRef)
+{
+	L1IRSlot slot = GetSlot(self, slotRef);
+	return IsValidSlot(self, slot);
+}
 
-					mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(SlotTypeForBlock(block->type), captureLocalAddress, calleeAddress, 0));
+static L1IRAddress TypeOf(L1IRState* self, L1IRAddress slotRef)
+{
+	L1IRSlot slot = GetSlot(self, slotRef);
+	switch (L1IRExtractSlotType(slot))
+	{
+		case L1IRSlotTypeError:
+		case L1IRSlotTypeTypeOf:
+		case L1IRSlotTypeNormalize:
+		case L1IRSlotTypeSubstitute:
+			break;
+		case L1IRSlotTypeUnit:
+			return L1IRStateCreateSlot(self, L1IRMakeSlot(L1IRSlotTypeUnitType, 0, 0, 0));
+		case L1IRSlotTypeUnknown:
+		case L1IRSlotTypeRawData32Extended:
+		case L1IRSlotTypeRawData32:
+			return L1IRStateCreateSlot(self, L1IRMakeSlot(L1IRSlotTypeUnknown, 0, 0, 0));
+		case L1IRSlotTypeUnitType:
+		case L1IRSlotTypeUniverse:
+		case L1IRSlotTypeForall:
+		case L1IRSlotTypeADT:
+		case L1IRSlotTypeExtendADT:
+		case L1IRSlotTypePairType:
+			return L1IRStateCreateSlot(self, L1IRMakeSlot(L1IRSlotTypeUniverse, 0, 0, 0));
+		case L1IRSlotTypeRecursive:
+			return Recursive_argumentType(slot);
+		case L1IRSlotTypeLambda:
+			return L1IRStateCreateSlot(self, L1IRMakeSlot(L1IRSlotTypeForall, Lambda_argumentType(slot), TypeOf(self, Lambda_result(slot)), 0));
+		case L1IRSlotTypeArgument:
+			return Argument_type(slot);
+		case L1IRSlotTypeConstructed:
+			return Constructed_adt(slot);
+		case L1IRSlotTypeCall:
+			return TypeOf(self, Substitute(self, Call_callee(slot), CreatePair(self, CreateUnit(self), Call_argument(slot))));
+		case L1IRSlotTypePair:
+			return L1IRStateCreateSlot(self, L1IRMakeSlot(L1IRSlotTypePairType, TypeOf(self, Pair_first(slot)), TypeOf(self, Pair_second(slot)), 0));
+		case L1IRSlotTypeProject:
+		{
+			L1IRAddress pairTypeSlotRef = Normalize(self, TypeOf(self, Project_pair(slot)));
+			L1IRSlot pairTypeSlot = GetSlot(self, pairTypeSlotRef);
+			if (L1IRExtractSlotType(pairTypeSlot) not_eq L1IRSlotTypePairType)
+				return CreateError(self, L1IRErrorTypeTypeChecking);
+			return (Project_index(slot) ? PairType_second : PairType_first) (pairTypeSlot);
+		}
+		case L1IRSlotTypeLookup:
+		{
+			//To do.  Need to be able to get the type of a constructor.
+			return L1IRStateCreateSlot(self, L1IRMakeSlot(L1IRSlotTypeUnknown, 0, 0, 0));
+		}
+		case L1IRSlotTypeBeginMatch:
+		case L1IRSlotTypeMatchCase:
+			return CreateError(self, L1IRErrorTypeInvalidInstruction);
+		case L1IRSlotTypeEndMatch:
+			return EndMatch_resultType(slot);
+	}
+	return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(L1IRSlotTypeTypeOf, slotRef, 0, 0));
+}
+
+static L1IRAddress Normalize(L1IRState* self, L1IRAddress slotRef)
+{
+	//printf("%s(%p, %u)...\n", __func__, (void*) self, (unsigned) slotRef);
+	L1IRSlot slot = GetSlot(self, slotRef);
+	L1IRSlotType type = L1IRExtractSlotType(slot);
+	switch (type)
+	{
+		case L1IRSlotTypeUnknown:
+		case L1IRSlotTypeError:
+		case L1IRSlotTypeUnit:
+		case L1IRSlotTypeUnitType:
+		case L1IRSlotTypeUniverse:
+		case L1IRSlotTypePair:
+		case L1IRSlotTypePairType:
+		case L1IRSlotTypeRawData32Extended:
+		case L1IRSlotTypeRawData32:
+		case L1IRSlotTypeADT:
+		case L1IRSlotTypeExtendADT:
+		case L1IRSlotTypeConstructed:
+		case L1IRSlotTypeArgument:
+			break;
+		case L1IRSlotTypeBeginMatch:
+			//return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(type, BeginMatch_value(slot), BeginMatch_type(slot), 0));
+		{
+			L1IRAddress valueRef = Normalize(self, BeginMatch_value(slot));
+			L1IRAddress typeRef = Normalize(self, BeginMatch_type(slot));
+			if (not IsOfType(self, valueRef, typeRef))
+				return CreateError(self, L1IRErrorTypeTypeChecking);
+			return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(L1IRSlotTypeMatchFailure, valueRef, 0, 0));
+		}
+		case L1IRSlotTypeMatchCase:
+			//return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(type, MatchCase_match(slot), MatchCase_name(slot), 0));
+		{
+			L1IRAddress matchRef = Normalize(self, MatchCase_match(slot));
+			L1IRSlot matchSlot = GetSlot(self, matchRef);
+			L1IRAddress matchNameRef = Normalize(self, MatchCase_name(slot));
+			switch(L1IRExtractSlotType(matchSlot))
+			{
+				case L1IRSlotTypeBeginMatch:
+				case L1IRSlotTypeMatchCase:
 					break;
+				case L1IRSlotTypeMatchFailure:
+				{
+					L1IRSlot constructedSlot = GetSlot(self, MatchFailure_value(matchSlot));
+					//printf("Line %u: %u\n", (unsigned) __LINE__, (unsigned) MatchFailure_value(matchSlot));
+					if (L1IRExtractSlotType(constructedSlot) not_eq L1IRSlotTypeConstructed)
+						return CreateError(self, L1IRErrorTypeInvalidInstruction);
+					//printf("Line %u: %u\n", (unsigned) __LINE__, (unsigned) MatchFailure_value(matchSlot));
+					L1IRAddress constructedNameRef = Constructed_name(constructedSlot);
+					//printf("Line %u: %u\n", (unsigned) __LINE__, (unsigned) MatchFailure_value(matchSlot));
+					
+					if (not AreEqual(self, constructedNameRef, matchNameRef))
+						return matchRef;
+					//printf("Line %u: %u\n", (unsigned) __LINE__, (unsigned) MatchFailure_value(matchSlot));
+					
+					L1IRAddress result = SubstituteWithCaptureChain(self, MatchCase_handler(slot), Constructed_captures(constructedSlot));
+					
+					return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(L1IRSlotTypeMatchSuccess, result, 0, 0));
 				}
-			default:
-				mergingSlotRemappings[i] = L1IRGlobalStateCreateSlot(self, localState, L1IRMakeSlot(SlotTypeForBlock(block->type), operands[0], operands[1], operands[2]));
-				break;
+				case L1IRSlotTypeMatchSuccess:
+					return matchRef;
+				default:
+					return CreateError(self, L1IRErrorTypeInvalidInstruction);
+			}
+			
+			return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(type, MatchCase_match(slot), MatchCase_name(slot), 0));
+			break;
+		}
+		case L1IRSlotTypeEndMatch:
+		{
+			L1IRAddress matchRef = Normalize(self, EndMatch_match(slot));
+			L1IRSlot matchSlot = GetSlot(self, matchRef);
+			//return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(type, EndMatch_match(slot), EndMatch_resultType(slot), 0));
+			switch(L1IRExtractSlotType(matchSlot))
+			{
+				case L1IRSlotTypeBeginMatch:
+				case L1IRSlotTypeMatchCase:
+					break;
+				case L1IRSlotTypeMatchFailure:
+					return CreateError(self, L1IRErrorTypeUnmatchableValue);
+				case L1IRSlotTypeMatchSuccess:
+				{
+					L1IRAddress resultTypeRef = Normalize(self, EndMatch_resultType(slot));
+					L1IRAddress result = Normalize(self, MatchSuccess_result(matchSlot));
+					if (not IsOfType(self, result, resultTypeRef))
+						return CreateError(self, L1IRErrorTypeTypeChecking);
+					return result;
+				}
+				default:
+					return CreateError(self, L1IRErrorTypeInvalidInstruction);
+			}
+			break;
+		}
+		case L1IRSlotTypeLookup:
+		{
+			L1IRAddress namespaceRef = Normalize(self, Lookup_namespace(slot));
+			L1IRAddress nameRef = Normalize(self, Lookup_name(slot));
+			L1IRSlot namespaceSlot = GetSlot(self, namespaceRef);
+			L1IRSlot nameSlot = GetSlot(self, nameRef);
+			
+			if (not (L1IRExtractSlotType(nameSlot) == L1IRSlotTypeRawData32 or L1IRExtractSlotType(nameSlot) == L1IRSlotTypeRawData32Extended))
+				return CreateError(self, L1IRErrorTypeInvalidInstruction);
+			
+			switch (L1IRExtractSlotType(namespaceSlot))
+			{
+				case L1IRSlotTypeADT:
+				case L1IRSlotTypeExtendADT:
+				{
+					while (L1IRExtractSlotType(namespaceSlot) == L1IRSlotTypeExtendADT)
+					{
+						if (AreEqual(self, ExtendADT_name(namespaceSlot), nameRef))
+							return Substitute(self, ExtendADT_constructor(namespaceSlot), Lookup_namespace(slot));
+						namespaceSlot = GetSlot(self, ExtendADT_adt(namespaceSlot));
+					}
+					
+					if (L1IRExtractSlotType(namespaceSlot) not_eq L1IRSlotTypeADT)
+						return CreateError(self, L1IRErrorTypeInvalidInstruction);
+					return CreateError(self, L1IRErrorTypeNoSuchFieldInNamespace);
+				}
+				default:
+					return CreateError(self, L1IRErrorTypeInvalidInstruction);
+			}
+			
+			break;
+		}
+		case L1IRSlotTypeRecursive:
+		{
+			L1IRAddress argumentTypeRef = Normalize(self, Recursive_argumentType(slot));
+			if (L1IRExtractSlotType(GetSlot(self, argumentTypeRef)) == L1IRSlotTypeError)
+				return CreateError(self, L1IRErrorTypeTypeChecking);
+			return Normalize(self, Substitute(self, Recursive_result(slot), slotRef));
+		}
+		case L1IRSlotTypeLambda:
+			return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(L1IRSlotTypeLambda, Normalize(self, Lambda_argumentType(slot)), Lambda_result(slot), 0));
+		case L1IRSlotTypeForall:
+			return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(L1IRSlotTypeForall, Normalize(self, Forall_argumentType(slot)), Forall_result(slot), 0));
+		case L1IRSlotTypeCall:
+		{
+			L1IRAddress calleeRef = Normalize(self, Call_callee(slot));
+			L1IRAddress argumentRef = Normalize(self, Call_argument(slot));
+			L1IRSlot calleeSlot = GetSlot(self, calleeRef);
+			if (L1IRExtractSlotType(calleeSlot) not_eq L1IRSlotTypeLambda)
+				return CreateError(self, L1IRErrorTypeTypeChecking);
+			if (not IsOfType(self, argumentRef, Lambda_argumentType(calleeSlot)))
+				return CreateError(self, L1IRErrorTypeTypeChecking);
+			return Normalize(self, Substitute(self, Lambda_result(calleeSlot), argumentRef));
+		}
+		case L1IRSlotTypeProject:
+		{
+			L1IRAddress pairRef = Normalize(self, Project_pair(slot));
+			L1IRSlot pairSlot = GetSlot(self, pairRef);
+			if (L1IRExtractSlotType(pairSlot) == L1IRSlotTypePair)
+				return CreateError(self, L1IRErrorTypeTypeChecking);
+			return (Project_index(slot) ? Pair_second : Pair_first) (pairSlot);
+		}
+		case L1IRSlotTypeTypeOf:
+		case L1IRSlotTypeNormalize:
+		case L1IRSlotTypeSubstitute:
+			return L1IRStateCreateSlot(self, slotRef);
+	}
+	
+	uint16_t operands[3];
+	for (uint8_t i = 0; i < 3; i++)
+	{
+		operands[i] = L1IRExtractSlotOperand(slot, i);
+		if (SlotTypeArgumentIsLocalAddress(type, i))
+			operands[i] = Normalize(self, operands[i]);
+	}
+	
+	return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(type, operands[0], operands[1], operands[2]));
+}
+
+static L1IRAddress Substitute(L1IRState* self, L1IRAddress slotRef, L1IRAddress argumentRef)
+{
+	
+	L1IRSlot slot = GetSlot(self, slotRef);
+	L1IRSlotType type = L1IRExtractSlotType(slot);
+	switch (type)
+	{
+		case L1IRSlotTypeError:
+		case L1IRSlotTypeUnit:
+		case L1IRSlotTypeUnitType:
+		case L1IRSlotTypeUniverse:
+		case L1IRSlotTypeUnknown:
+		case L1IRSlotTypeRecursive:
+		case L1IRSlotTypeLambda:
+		case L1IRSlotTypeForall:
+		case L1IRSlotTypeCall:
+		case L1IRSlotTypePair:
+		case L1IRSlotTypePairType:
+		case L1IRSlotTypeProject:
+		case L1IRSlotTypeRawData32Extended:
+		case L1IRSlotTypeRawData32:
+		case L1IRSlotTypeADT:
+		case L1IRSlotTypeExtendADT:
+		case L1IRSlotTypeConstructed:
+		case L1IRSlotTypeLookup:
+		case L1IRSlotTypeBeginMatch:
+		case L1IRSlotTypeMatchCase:
+		case L1IRSlotTypeEndMatch:
+		case L1IRSlotTypeTypeOf:
+		case L1IRSlotTypeNormalize:
+			break;
+		case L1IRSlotTypeArgument:
+		{
+			assert(Argument_index(slot) > 0);
+			if (Argument_index(slot) == 1)
+				return argumentRef;
+			return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(L1IRSlotTypeArgument, Argument_index(slot) - 1, Substitute(self, Argument_type(slot), argumentRef), 0));
+		}
+		case L1IRSlotTypeSubstitute:
+		{
+			L1IRAddress root = L1IRStateCreateSlotRaw(self, L1IRMakeSlot(type, Substitute_root(slot), Substitute(self, Substitute_argument(slot), argumentRef), 0));
+			return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(L1IRSlotTypeSubstitute, root, argumentRef, 0));
+			//substitute xs o substitute ys = substitute (map (substitute xs) ys .. xs)
+			//abort();
 		}
 	}
 	
-	finish:
-
-	resultLocalAddress = mergingSlotRemappings[block->native.slotCount - 1];
-
-	free(mergingSlotRemappings);
+	uint16_t operands[3];
+	for (uint8_t i = 0; i < 3; i++)
+	{
+		operands[i] = L1IRExtractSlotOperand(slot, i);
+		if (SlotTypeArgumentIsLocalAddress(type, i))
+			operands[i] = Substitute(self, operands[i], argumentRef);
+	}
 	
-	resultComputed:
-	
-	localState->callDepth--;
-
-	L1IRLocalAddress retainedLocalAddresses[2] = {resultLocalAddress, finalArgumentLocalAddress};
-	L1IRGlobalStatePopGCBarrier(self, localState, retainedLocalAddresses, finalArgumentLocalAddressOut ? 2 : 1);
-	
-	if (finalArgumentLocalAddressOut)
-		*finalArgumentLocalAddressOut = finalArgumentLocalAddress;
-
-	return resultLocalAddress;
+	return L1IRStateCreateSlotRaw(self, L1IRMakeSlot(type, operands[0], operands[1], operands[2]));
 }
 
-uint16_t L1IRGlobalStateCall(L1IRGlobalState* self, L1IRLocalState* localState, L1IRLocalAddress calleeAddress, L1IRLocalAddress argumentLocalAddress)
+/*static L1IRAddress SubstituteWithCaptureChain(L1IRState* self, L1IRAddress slotRef, L1IRAddress capturesRef)
 {
-	return L1IRGlobalStateEvaluate(self, localState,  L1IRGlobalStateEvaluationFlagHasArgument, calleeAddress, argumentLocalAddress, 0, NULL);
+	L1IRSlot capturesSlot = GetSlot(self, capturesRef);
+	while (L1IRExtractSlotType(capturesSlot) == L1IRSlotTypePair)
+	{
+		slotRef = Substitute(self, slotRef, Pair_second(capturesSlot));
+		capturesSlot = GetSlot(Pair_first(capturesSlot));
+	}
+	
+	if (L1IRExtractSlotType(capturesSlot) not_eq L1IRSlotTypeUnit)
+		return CreateError(self, L1IRErrorTypeInvalidInstruction);
+	return slotRef;
+}*/
+
+static L1IRAddress SubstituteWithCaptureChain(L1IRState* self, L1IRAddress slotRef, L1IRAddress capturesRef)
+{
+	L1IRSlot capturesSlot = GetSlot(self, capturesRef);
+	
+	if (L1IRExtractSlotType(capturesSlot) == L1IRSlotTypeUnit)
+		return slotRef;
+	if (L1IRExtractSlotType(capturesSlot) == L1IRSlotTypePair)
+		return Substitute(self, SubstituteWithCaptureChain(self, slotRef, Pair_first(capturesSlot)), Pair_second(capturesSlot));
+	
+	return CreateError(self, L1IRErrorTypeInvalidInstruction);
 }
 
+L1IRAddress L1IRStateCreateSlot(L1IRState* self, L1IRSlot slot)
+{
+	//fprintf(stdout, "creating: %s (%u, %u, %u)\n", L1IRSlotTypeAsString(L1IRExtractSlotType(slot)), (unsigned) L1IRExtractSlotOperand(slot, 0), (unsigned) L1IRExtractSlotOperand(slot, 1), (unsigned) L1IRExtractSlotOperand(slot, 2));
+
+	assert(IsValidSlot(self, slot));
+	
+	//assert(L1IRValidateSlot(self, slot));
+
+	switch (L1IRExtractSlotType(slot))
+	{
+		case L1IRSlotTypeError:
+		case L1IRSlotTypeUnit:
+		case L1IRSlotTypeUnitType:
+		case L1IRSlotTypeUniverse:
+		case L1IRSlotTypeUnknown:
+		case L1IRSlotTypeRecursive:
+		case L1IRSlotTypeLambda:
+		case L1IRSlotTypeForall:
+		case L1IRSlotTypeCall:
+		case L1IRSlotTypePair:
+		case L1IRSlotTypePairType:
+		case L1IRSlotTypeProject:
+		case L1IRSlotTypeArgument:
+		case L1IRSlotTypeRawData32Extended:
+		case L1IRSlotTypeRawData32:
+		case L1IRSlotTypeADT:
+		case L1IRSlotTypeExtendADT:
+		case L1IRSlotTypeConstructed:
+		case L1IRSlotTypeLookup:
+		case L1IRSlotTypeBeginMatch:
+		case L1IRSlotTypeMatchCase:
+		case L1IRSlotTypeEndMatch:
+			break;
+		case L1IRSlotTypeTypeOf:
+			return TypeOf(self, TypeOf_root(slot));
+		case L1IRSlotTypeNormalize:
+			return Normalize(self, Normalize_root(slot));
+		case L1IRSlotTypeSubstitute:
+			return Substitute(self, Substitute_root(slot), Substitute_argument(slot));
+	}
+	
+	return L1IRStateCreateSlotRaw(self, slot);
+}

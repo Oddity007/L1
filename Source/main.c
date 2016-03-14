@@ -7,9 +7,10 @@
 #include <assert.h>
 #include "L1Parser.h"
 #include "L1IRState.h"
-#include "L1GenerateIR.h"
 
-static void PrintHex(FILE* outputFile, const char* bytes, size_t byteCount)
+#include "L1IRSlotDebugInfo"
+
+/*static void PrintHex(FILE* outputFile, const char* bytes, size_t byteCount)
 {
 	//assert(byteCount > 0);
 	//fputs("Hex of ", stderr);
@@ -22,122 +23,7 @@ static void PrintHex(FILE* outputFile, const char* bytes, size_t byteCount)
 		fputc(chars[(bytes[i] >> 4) & 0xF], outputFile);
 		fputc(chars[(bytes[i] >> 0) & 0xF], outputFile);
 	}
-}
-
-static void PrintAST(FILE* outputFile, FILE* logFile, const L1ParserASTNode* nodes, size_t nodeCount, size_t currentNodeIndex, const char** tokenStrings, const size_t* tokenStringLengths)
-{
-	if (not currentNodeIndex) abort();
-	/*switch (nodes[currentNodeIndex - 1].type)
-	{
-		case L1ParserASTNodeTypeIdentifier:
-			fprintf(outputFile, "{\"_type\":\"Identifier\",");
-			fprintf(outputFile, "\"data\":\"");
-			{
-				size_t i = nodes[currentNodeIndex - 1].data.identifier.tokenIndex - 2;
-				//fprintf(stderr, "node %u\n", (unsigned int) i);
-				PrintHex(outputFile, tokenStrings[i], tokenStringLengths[i]);
-			}
-			fprintf(outputFile, "\"}");
-			break;
-		case L1ParserASTNodeTypeString:
-			fprintf(outputFile, "{\"_type\":\"String\",");
-			fprintf(outputFile, "\"data\":\"");
-			{
-				size_t i = nodes[currentNodeIndex - 1].data.string.tokenIndex - 2;
-				//fprintf(stderr, "node %u\n", (unsigned int) i);
-				PrintHex(outputFile, tokenStrings[i], tokenStringLengths[i]);
-			}
-			fprintf(outputFile, "\"}");
-			break;
-		case L1ParserASTNodeTypeNatural:
-			fprintf(outputFile, "{\"_type\":\"Natural\",");
-			fprintf(outputFile, "\"data\":\"");
-			{
-				size_t i = nodes[currentNodeIndex - 1].data.natural.tokenIndex - 2;
-				//fprintf(stderr, "node %u\n", (unsigned int) i);
-				PrintHex(outputFile, tokenStrings[i], tokenStringLengths[i]);
-			}
-			fprintf(outputFile, "\"}");
-			break;
-		case L1ParserASTNodeTypeEvaluateArgument:
-			fprintf(outputFile, "{\"_type\":\"EvaluateArgument\",");
-			fprintf(outputFile, "\"expression\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.evaluateArgument.expression, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeOverload:
-			fprintf(outputFile, "{\"_type\":\"Overload\",");
-			fprintf(outputFile, "\"first\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.overload.first, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, ",\"second\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.overload.second, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeAssign:
-			fprintf(outputFile, "{\"_type\":\"Assign\",");
-			fprintf(outputFile, "\"destination\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.assign.destination, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, ",\"source\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.assign.source, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, ",\"followingContext\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.assign.followingContext, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeDefine:
-			fprintf(outputFile, "{\"_type\":\"Define\",");
-			fprintf(outputFile, "\"destination\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.define.destination, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, ",\"source\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.define.source, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, ",\"followingContext\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.define.followingContext, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeAnnotate:
-			fprintf(outputFile, "{\"_type\":\"Annotate\",");
-			fprintf(outputFile, "\"value\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.annotate.value, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, ",\"type\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.annotate.type, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeLambda:
-			fprintf(outputFile, "{\"_type\":\"Lambda\",");
-			fprintf(outputFile, "\"result\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.lambda.result, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, ",\"argument\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.lambda.argument, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypePi:
-			fprintf(outputFile, "{\"_type\":\"Pi\",");
-			fprintf(outputFile, "\"result\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.pi.result, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, ",\"argument\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.pi.argument, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeUnderscore:
-			abort();
-			break;
-		case L1ParserASTNodeTypeCall:
-			fprintf(outputFile, "{\"_type\":\"Call\",");
-			fprintf(outputFile, "\"callee\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.call.callee, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, ",\"argument\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.call.argument, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, "}");
-			break;
-		case L1ParserASTNodeTypeDeclare:
-			fprintf(outputFile, "{\"_type\":\"Declare\",");
-			fprintf(outputFile, "\"destination\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.declare.destination, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, ",\"followingContext\":");
-			PrintAST(outputFile, logFile, nodes, nodeCount, nodes[currentNodeIndex - 1].data.declare.followingContext, tokenStrings, tokenStringLengths);
-			fprintf(outputFile, "}");
-			break;
-	}*/
-}
+}*/
 
 static char* LoadFileAsString(FILE* file)
 {
@@ -167,7 +53,6 @@ static char* CloneString(const char* s, size_t length)
 
 typedef enum
 {
-	OutputTypeAST,
 	OutputTypeIR,
 	OutputTypeRun,
 }OutputType;
@@ -181,11 +66,7 @@ int main(int argc, const char** argv)
 	{
 		const char* arg = argv[i];
 		
-		if (strcmp(arg, "--ast") == 0)
-		{
-			outputType = OutputTypeAST;
-		}
-		else if (strcmp(arg, "--ir") == 0)
+		if (strcmp(arg, "--ir") == 0)
 		{
 			outputType = OutputTypeIR;
 		}
@@ -267,34 +148,54 @@ int main(int argc, const char** argv)
 							assert(tokenID == parser.currentTokenIndex);
 							break;
 						case L1ParserStatusTypeDone:
-							if (outputType == OutputTypeAST)
+							if (outputType == OutputTypeRun)
 							{
-								PrintAST(outputFile, stderr, L1ParserGetASTNodes(& parser), L1ParserGetASTNodeCount(& parser), L1ParserGetRootASTNodeIndex(& parser), L1ArrayGetElements(& tokenStrings), L1ArrayGetElements(& tokenStringLengths));
-							}
-							else if (outputType == OutputTypeRun)
-							{
-								L1IRGlobalState globalState;
-								L1IRGlobalStateInitialize(& globalState);
-								L1IRLocalState localState;
-								L1IRLocalStateInitialize(& localState);
 
 								fputs("\nRunning block...\n", stderr);
-								L1IRGlobalAddress globalAddress = L1GenerateIR(& globalState, L1ParserGetASTNodes(& parser), L1ParserGetASTNodeCount(& parser), L1ParserGetRootASTNodeIndex(& parser), L1ArrayGetElements(& tokenStrings), L1ArrayGetElements(& tokenStringLengths), L1ArrayGetElementCount(& tokenStrings));
-								L1IRLocalAddress unitLocalAddress = L1IRLocalStateCreateSlot(& localState, L1IRMakeSlot(L1IRSlotTypeUnit, 0, 0, 0));
-								uint16_t resultLocalAddress = L1IRGlobalStateCall(& globalState, & localState, globalAddress, unitLocalAddress);
+								//L1IRGlobalAddress globalAddress = 0;//L1GenerateIR(& globalState, L1ParserGetASTNodes(& parser), L1ParserGetASTNodeCount(& parser), L1ParserGetRootASTNodeIndex(& parser), L1ArrayGetElements(& tokenStrings), L1ArrayGetElements(& tokenStringLengths), L1ArrayGetElementCount(& tokenStrings));
+								/*L1IRLocalAddress unitLocalAddress = L1IRLocalStateCreateSlot(& localState, L1IRMakeSlot(L1IRSlotTypeUnit, 0, 0, 0));
+								uint16_t resultLocalAddress = L1IRGlobalStateCall(& parser.globalState, & localState, parser.root, unitLocalAddress);
 								fprintf(stderr, "result: #%u\n", (unsigned) resultLocalAddress);
 								for (size_t i = 0; i < L1ArrayGetElementCount(& localState.slots); i++)
 								{
 									L1IRSlot slot = ((const L1IRSlot*) L1ArrayGetElements(& localState.slots))[i];
 									fprintf(stderr, "#%u: %u (%u, %u, %u)\n", (unsigned) i, (unsigned) L1IRExtractSlotType(slot), (unsigned) L1IRExtractSlotOperand(slot, 0), (unsigned) L1IRExtractSlotOperand(slot, 1), (unsigned) L1IRExtractSlotOperand(slot, 2));
+								}*/
+								
+								L1IRState* irstate = L1ParserGetIRState(& parser);
+								fprintf(stdout, "Root: %u\n", (unsigned) parser.root);
+								
+								{
+									for (size_t i = 0; i < L1ArrayGetElementCount(& irstate->slots); i++)
+									{
+										L1IRSlot slot = ((const L1IRSlot*) L1ArrayGetElements(& irstate->slots))[i];
+										fprintf(stdout, "#%u: %s (%u, %u, %u)\n", (unsigned) i, L1IRSlotTypeAsString(L1IRExtractSlotType(slot)), (unsigned) L1IRExtractSlotOperand(slot, 0), (unsigned) L1IRExtractSlotOperand(slot, 1), (unsigned) L1IRExtractSlotOperand(slot, 2));
+									}
 								}
-
-								L1IRLocalStateDeinitialize(& localState);
-								L1IRGlobalStateDeinitialize(& globalState);
+								
+								//fprintf(stdout, "Old Root: %u\n", (unsigned) parser.root);
+								L1IRAddress newRoot = L1IRStateCreateSlot(irstate, L1IRMakeSlot(L1IRSlotTypeNormalize, parser.root, 0, 0));
+								L1IRStateExternalSlotRef rootExternalSlotRef = L1IRStateAcquireExternalSlotRef(irstate, newRoot);
+								L1IRStateCollectGarbage(irstate);
+								newRoot = L1IRStateGetExternalSlotRefCurrentSlotRef(irstate, rootExternalSlotRef);
+								fprintf(stdout, "Root: %u\n", (unsigned) newRoot);
+								
+								{
+									for (size_t i = 0; i < L1ArrayGetElementCount(& irstate->slots); i++)
+									{
+										L1IRSlot slot = ((const L1IRSlot*) L1ArrayGetElements(& irstate->slots))[i];
+										fprintf(stdout, "#%u: %s (%u, %u, %u)\n", (unsigned) i, L1IRSlotTypeAsString(L1IRExtractSlotType(slot)), (unsigned) L1IRExtractSlotOperand(slot, 0), (unsigned) L1IRExtractSlotOperand(slot, 1), (unsigned) L1IRExtractSlotOperand(slot, 2));
+									}
+								}
+								
+								L1IRStateReleaseExternalSlotRef(irstate, rootExternalSlotRef);
 							}
 							goto done;
 						case L1ParserStatusTypeUnexpectedSymbol:
 							fprintf(stderr, "Unexpected symbol at line %u\n", (unsigned int) L1LexerGetCurrentLineNumber(& lexer));
+							goto done;
+						case L1ParserStatusTypeUnknown:
+							fprintf(stderr, "Unknown error at line %u\n", (unsigned int) L1LexerGetCurrentLineNumber(& lexer));
 							goto done;
 					}
 				}

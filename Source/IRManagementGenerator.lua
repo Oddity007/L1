@@ -57,7 +57,34 @@ local function OutputSlotAccessors()
 	file:close()
 end
 
+local function OutputSlotDebugInfo()
+	file = io.open(OutputDirectory .. "/L1IRSlotDebugInfo", "w")
+	file:write("static char* L1IRSlotTypeAsString(L1IRSlotType type)\n{\n\tswitch(type)\n\t{\n")
+	for _, definition in ipairs(SlotTypeDefinitions) do
+		local type = definition.type
+		file:write("\t\tcase L1IRSlotType" .. type .. ": return \"" .. type .. "\";\n")
+	end
+	file:write("\t}\n}\n")
+	file:close()
+end
+
+local function OutputSlotTypeDefinitions()
+	file = io.open(OutputDirectory .. "/L1IRSlotTypeDefinitions", "w")
+	file:write("enum L1IRSlotType\n{\n")
+	local lastDefinition = nil
+	for _, definition in ipairs(SlotTypeDefinitions) do
+		lastDefinition = definition
+		local type = definition.type
+		file:write("\tL1IRSlotType" .. type .. ",\n")
+	end
+	assert(lastDefinition)
+	file:write("\tL1IRSlotTypeLast = " .. "L1IRSlotType" .. lastDefinition.type .. "\n};\ntypedef enum L1IRSlotType L1IRSlotType;\n")
+	file:close()
+end
+
 do
 	OutputSlotDescriptions()
 	OutputSlotAccessors()
+	OutputSlotDebugInfo()
+	OutputSlotTypeDefinitions()
 end

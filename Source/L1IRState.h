@@ -10,91 +10,43 @@
 #include <stdbool.h>
 #include "L1Array.h"
 
-typedef struct L1IRGlobalState L1IRGlobalState;
-typedef struct L1IRLocalState L1IRLocalState;
+typedef struct L1IRState L1IRState;
 
-struct L1IRGlobalState
+typedef uint16_t L1IRAddress;
+typedef size_t L1IRStateExternalSlotRef;
+
+struct L1IRState
 {
-	L1Array blocks;
+	L1Array slots, externalSlotRefs;
+	/*L1IRAddress (*foreignTypeOf)(L1IRState* state, L1IRAddress nameRef);
+	L1IRAddress (*foreignSubstitute)(L1IRState* state, L1IRAddress nameRef, L1IRAddress argumentRef);
+	L1IRAddress (*foreignNormalize)(L1IRState* state, L1IRAddress nameRef);
+	void (*foreignDealloc)(L1IRState* state, L1IRAddress nameRef);*/
+	//L1Array slotReferenceCounts;
 };
 
-struct L1IRLocalState
+/*typedef struct L1IRStateSlotView L1IRStateSlotView;
+
+struct L1IRStateSlotView
 {
-	L1Array slots, gcBarriers;
-	size_t callDepth;
-};
+	L1IRState* state;
+	L1IRAddress viewRef;
+};*/
 
-typedef uint16_t L1IRGlobalAddress;
-typedef uint16_t L1IRLocalAddress;
+void L1IRStateInitialize(L1IRState* self);
+void L1IRStateDeinitialize(L1IRState* self);
+void L1IRStateCollectGarbage(L1IRState* self);
+L1IRAddress L1IRStateCreateSlot(L1IRState* self, L1IRSlot slot);
+L1IRSlot L1IRStateGetSlot(L1IRState* self, L1IRAddress address);
 
-enum L1IRGlobalStateBlockType
-{
-	L1IRGlobalStateBlockTypeForeignFunction,
-	L1IRGlobalStateBlockTypeLambda,
-	L1IRGlobalStateBlockTypePi,
-	L1IRGlobalStateBlockTypeSigma,
-	L1IRGlobalStateBlockTypeADT,
-};
-typedef enum L1IRGlobalStateBlockType L1IRGlobalStateBlockType;
+//L1IRAddress L1IRStateRetainSlot(L1IRState* self, L1IRAddress slotRef);
+//void L1IRStateReleaseSlot(L1IRState* self, L1IRAddress slotRef);
 
-typedef struct L1IRGlobalStateBlock L1IRGlobalStateBlock;
+//void L1IRStateSlotViewInitialize(L1IRStateSlotView* self, L1IRState* state, L1IRAddress slotRef);
+//void L1IRStateSlotViewDeinitialize(L1IRStateSlotView* self);
 
-typedef L1IRLocalAddress (*L1IRGlobalStateBlockCallback)(L1IRGlobalState* globalState, L1IRLocalState* localState, L1IRGlobalAddress selfGlobalAddress, L1IRLocalAddress argumentLocalAddress, L1IRLocalAddress* finalArgumentLocalAddress, void* userdata);
-
-struct L1IRGlobalStateBlock
-{
-	L1IRGlobalStateBlockType type;
-	union
-	{
-		struct
-		{
-			L1IRSlot* slots;
-			uint16_t slotCount;
-		} native;
-		
-		struct
-		{
-			L1IRGlobalStateBlockCallback callback;
-			void* userdata;
-		} foreign;
-	};
-};
-
-static bool L1IRGlobalStateBlockIsNative(const L1IRGlobalStateBlock* block)
-{
-	return true;
-	//return block->type not_eq L1IRGlobalStateBlockTypeForeignFunction;
-}
-
-void L1IRLocalStateInitialize(L1IRLocalState* self);
-void L1IRLocalStateDeinitialize(L1IRLocalState* self);
-L1IRLocalAddress L1IRLocalStateCreateSlot(L1IRLocalState* self, L1IRSlot slot);
-
-void L1IRGlobalStateInitialize(L1IRGlobalState* self);
-void L1IRGlobalStateDeinitialize(L1IRGlobalState* self);
-L1IRGlobalAddress L1IRGlobalStateCreateNativeBlock(L1IRGlobalState* self, L1IRGlobalStateBlockType type, const L1IRSlot* slots, uint16_t slotCount, L1IRLocalAddress argumentLocalAddress);
-L1IRGlobalAddress L1IRGlobalStateCreateForeignBlock(L1IRGlobalState* self, L1IRGlobalStateBlockType type, L1IRGlobalStateBlockCallback callback, void* userdata);
-L1IRLocalAddress L1IRGlobalStateCall(L1IRGlobalState* self, L1IRLocalState* localState, L1IRGlobalAddress calleeAddress, L1IRLocalAddress argumentLocalAddress);
-
-//Internal
-
-enum L1IRGlobalStateEvaluationFlags
-{
-	L1IRGlobalStateEvaluationFlagHasArgument = 1,
-	L1IRGlobalStateEvaluationFlagHasCaptured = 1 << 1,
-	L1IRGlobalStateEvaluationFlagHasArgumentAndCaptured = L1IRGlobalStateEvaluationFlagHasArgument | L1IRGlobalStateEvaluationFlagHasCaptured,
-};
-
-typedef uint32_t L1IRGlobalStateEvaluationFlags;
-
-L1IRLocalAddress L1IRGlobalStateEvaluate(L1IRGlobalState* self, L1IRLocalState* localState, L1IRGlobalStateEvaluationFlags flags, L1IRGlobalAddress calleeAddress, L1IRLocalAddress argumentLocalAddress, L1IRLocalAddress captureLocalAddress, L1IRLocalAddress* finalArgumentLocalAddress);
-
-uint16_t L1IRGlobalStateCreateSlot(L1IRGlobalState* self, L1IRLocalState* localState, L1IRSlot slot);
-
-bool L1IRGlobalStateIsOfType(L1IRGlobalState* self, L1IRLocalState* localState, uint16_t valueLocalAddress, uint16_t typeLocalAddress);
-
-void L1IRGlobalStatePushGCBarrier(L1IRGlobalState* self, L1IRLocalState* localState);
-void L1IRGlobalStatePopGCBarrier(L1IRGlobalState* self, L1IRLocalState* localState, uint16_t* roots, size_t rootCount);
+L1IRStateExternalSlotRef L1IRStateAcquireExternalSlotRef(L1IRState* self, L1IRAddress slotRef);
+void L1IRStateReleaseExternalSlotRef(L1IRState* self, L1IRStateExternalSlotRef ref);
+L1IRAddress L1IRStateGetExternalSlotRefCurrentSlotRef(L1IRState* self, L1IRStateExternalSlotRef ref);
 
 #endif
-

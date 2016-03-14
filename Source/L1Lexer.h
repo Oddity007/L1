@@ -11,39 +11,27 @@ enum L1LexerTokenType
 {
 	L1LexerTokenTypeNatural,
 	L1LexerTokenTypeString,
-	
 	L1LexerTokenTypeIdentifier,
-	
 	L1LexerTokenTypeTerminal,
-	
 	L1LexerTokenTypeOpenParenthesis,
 	L1LexerTokenTypeCloseParenthesis,
-	
 	L1LexerTokenTypeSingleEqual,
 	L1LexerTokenTypeSingleColon,
-	L1LexerTokenTypeDoubleColon,
-	
-	L1LexerTokenTypeSingleBarArrow,
-	L1LexerTokenTypeDoubleBarArrow,
-	
-	//L1LexerTokenTypeUnderscore,
-	//L1LexerTokenTypeUniverse,
-	
-	//L1LexerTokenTypeMinus,
-	
-	L1LexerTokenTypeDollar,
-	L1LexerTokenTypePercent,
+	L1LexerTokenTypeSingleLineArrow,
+	L1LexerTokenTypeBar,
 	L1LexerTokenTypeAmpersand,
-	
 	L1LexerTokenTypeDeclare,
-	
 	L1LexerTokenTypeComma,
-	L1LexerTokenTypeOpenBracket,
-	L1LexerTokenTypeCloseBracket,
-	
-	L1LexerTokenTypeLet,
 	L1LexerTokenTypeSelf,
 	L1LexerTokenTypeUniverse,
+	L1LexerTokenTypeLet,
+	L1LexerTokenTypeFn,
+	L1LexerTokenTypePi,
+	L1LexerTokenTypeSigma,
+	L1LexerTokenTypeADT,
+	L1LexerTokenTypeMatch,
+	L1LexerTokenTypePeriod,
+	L1LexerTokenTypeDollar,
 
 	L1LexerTokenTypeDone,
 };

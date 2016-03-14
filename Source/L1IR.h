@@ -6,55 +6,61 @@
 #include <assert.h>
 #include <stdbool.h>
 
-enum L1IRSlotType
+/*enum L1IRSlotType
 {
-	L1IRSlotTypeSelf,
-
 	L1IRSlotTypeUniverse,
 	
 	L1IRSlotTypeUnit,
 	L1IRSlotTypeUnitType,
 	
+	L1IRSlotTypeDeconstructorLambda,
 	L1IRSlotTypeLambda,
-	L1IRSlotTypePi,
+	L1IRSlotTypeForall,
+	L1IRSlotTypeCall,
 
 	L1IRSlotTypePair,
-	L1IRSlotTypeSigma,
-
-	L1IRSlotTypeProjectPair,
-
-	L1IRSlotTypeCall,
-	L1IRSlotTypeCallCapture,
+	L1IRSlotTypeExists,
+	L1IRSlotTypeProject,
 	
 	L1IRSlotTypeArgument,
-	L1IRSlotTypeCaptured,
+	
+	L1IRSlotTypeRecursive,
 	
 	L1IRSlotTypeADT,
 	L1IRSlotTypeExtendADT,
 	L1IRSlotTypeConstructor,
-	L1IRSlotTypeConstructorOf,
-	L1IRSlotTypeConstructedOf,
-	L1IRSlotTypeDeconstruction,
-	L1IRSlotTypeDeconstructionSuccess,
-	L1IRSlotTypeBeginDeconstruction,
-	L1IRSlotTypeEndDeconstruction,
+	L1IRSlotTypeConstructed,
 
 	L1IRSlotTypeRawData32Extended,
-	L1IRSlotTypeRawData48,
-
-	L1IRSlotTypeUnresolvedSymbol,
+	L1IRSlotTypeRawData32,
+	
 	L1IRSlotTypeError,
 
 	L1IRSlotTypeLast = L1IRSlotTypeError,
 	
-};
+};*/
+
+#include "L1IRSlotTypeDefinitions"
 
 enum L1IRErrorType
 {
-	L1IRErrorType,
+	L1IRErrorTypeUnknown,
 	L1IRErrorTypeTypeChecking,
 	L1IRErrorTypeInvalidInstruction,
+	L1IRErrorTypeUnmatchableValue,
+	L1IRErrorTypeNoSuchFieldInNamespace,
+	L1IRErrorTypeLast = L1IRErrorTypeNoSuchFieldInNamespace,
 };
+typedef enum L1IRErrorType L1IRErrorType;
+
+enum
+{
+	L1IRSlotAnnotationFlagIsConfirmedReachable = 1,
+	//L1IRSlotAnnotationFlagIsSingleUse = 1 << 1,
+	L1IRSlotAnnotationFlagIsNormalized = 1 << 2,
+};
+
+//typedef enum L1IRErrorType L1IRErrorType;
 
 typedef enum L1IRSlotType L1IRSlotType;
 
@@ -89,7 +95,17 @@ static uint8_t L1IRExtractSlotAnnotation(L1IRSlot slot)
 static void L1IRSetSlotAnnotation(L1IRSlot* slot, uint8_t annotation)
 {
 	*slot &= 0xFFFFFFFFFFFF00FFul;
-	*slot |= (annotation << 8u);
+	*slot |= (uint64_t) (annotation << 8u);
+}
+
+static void L1IRUpdateSlotAnnotationFlags(L1IRSlot* slot, uint8_t flags, bool to)
+{
+	uint8_t annotation = L1IRExtractSlotAnnotation(* slot);
+	if (to)
+		annotation |= flags;
+	else
+		annotation &= ~ flags;
+	L1IRSetSlotAnnotation(slot, annotation);
 }
 
 static L1IRSlot L1IRAttachSlotAnnotation(L1IRSlot slot, uint8_t annotation)
